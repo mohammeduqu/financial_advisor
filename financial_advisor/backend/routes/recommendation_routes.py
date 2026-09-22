@@ -38,7 +38,7 @@ def register_recommendations(app, recommendation_service, settings):
         if not slot.acquire(blocking=False):
             raise InvoiceError("server_busy", "Another list or image is being analyzed. Try again shortly.", 503)
         try:
-            extracted = recognize_shopping_list(current_app.extensions["ollama_service"], text=text)
+            extracted = recognize_shopping_list(current_app.extensions["ai_service"], text=text)
             return jsonify(success=True, stage="review", mode=mode, **extracted)
         finally:
             slot.release()
@@ -97,14 +97,14 @@ def register_recommendations(app, recommendation_service, settings):
             raise InvoiceError("server_busy", "Another image is being analyzed. Try again shortly.", 503)
         try:
             image = prepare_image(files[0].read(MAX_IMAGE_BYTES + 1))
-            ollama = current_app.extensions["ollama_service"]
+            ai_service = current_app.extensions["ai_service"]
             if mode == "shopping-list":
-                extracted = recognize_shopping_list(ollama, image_bytes=image)
+                extracted = recognize_shopping_list(ai_service, image_bytes=image)
                 return jsonify(success=True, stage="review", mode=mode, **extracted)
             if mode == "product":
-                product = recognize_product(image, ollama, current_price)
+                product = recognize_product(image, ai_service, current_price)
                 return jsonify(success=True, stage="review", mode=mode, products=[product], warnings=[])
-            invoice, warnings = analyze_invoice(image, ollama)
+            invoice, warnings = analyze_invoice(image, ai_service)
             products = [product_from_item(item, index) for index, item in enumerate(invoice["items"])]
             return jsonify(success=True, stage="review", mode=mode,
                            invoice=invoice, products=products, warnings=warnings)

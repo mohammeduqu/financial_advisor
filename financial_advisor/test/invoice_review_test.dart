@@ -83,6 +83,8 @@ void main() {
               .first;
       await tester.scrollUntilVisible(dateField, 200, scrollable: scrollable);
       await tester.enterText(dateField, '2024-03-25');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('add-invoice-expense')),
         500,
@@ -94,6 +96,7 @@ void main() {
                 )
                 .first,
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('add-invoice-expense')));
       await tester.pumpAndSettle();
       final result = await reviewResult;

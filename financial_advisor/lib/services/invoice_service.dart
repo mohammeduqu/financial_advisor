@@ -2,12 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../core/invoice.dart';
 
-const invoiceApiPreference = 'invoice_api_url';
-const _deployedApiMigrationPreference = 'invoice_api_deployed_v1';
-const deployedInvoiceApiUrl = 'http://31.97.178.214:5001';
 const invoiceMaxImageBytes = 1500000;
 const invoiceRequestTimeout = Duration(seconds: 330);
 
@@ -34,55 +30,6 @@ bool isHtmlApiResponse(http.Response response) {
   ).hasMatch(prefix);
 }
 
-String defaultInvoiceApiUrl() {
-  const configured = String.fromEnvironment('INVOICE_API_URL');
-  if (configured.isNotEmpty) return configured;
-  return deployedInvoiceApiUrl;
-}
-
-/// Old installs stored a local address which would otherwise mask the new default.
-/// After migration, manual server selections (including local ones) take precedence.
-String configuredInvoiceApiUrl(SharedPreferences prefs) {
-  final saved = prefs.getString(invoiceApiPreference)?.trim();
-  if (saved == null || saved.isEmpty) return defaultInvoiceApiUrl();
-  if (prefs.getBool(_deployedApiMigrationPreference) != true &&
-      _isLegacyLocalApiUrl(saved)) {
-    return defaultInvoiceApiUrl();
-  }
-  return saved;
-}
-
-Future<bool> saveInvoiceApiUrl(SharedPreferences prefs, String value) async {
-  if (validateInvoiceApiUrl(value) != null) return false;
-  if (!await prefs.setString(invoiceApiPreference, value.trim())) return false;
-  return prefs.setBool(_deployedApiMigrationPreference, true);
-}
-
-Future<void> migrateInvoiceApiUrl(SharedPreferences prefs) async {
-  if (prefs.getBool(_deployedApiMigrationPreference) == true) return;
-  final saved = prefs.getString(invoiceApiPreference)?.trim();
-  // Drop obsolete overrides so future deployments can still change the default.
-  if (saved != null && (saved.isEmpty || _isLegacyLocalApiUrl(saved))) {
-    if (!await prefs.remove(invoiceApiPreference)) return;
-  }
-  await prefs.setBool(_deployedApiMigrationPreference, true);
-}
-
-bool _isLegacyLocalApiUrl(String value) {
-  final host = Uri.tryParse(value)?.host.toLowerCase();
-  if (host == null) return false;
-  if (host == 'localhost' || host == '[::1]' || host == '::1') return true;
-  final parts = host.split('.').map(int.tryParse).toList();
-  if (parts.length != 4 ||
-      !parts.every((p) => p != null && p >= 0 && p <= 255)) {
-    return false;
-  }
-  return parts[0] == 127 ||
-      parts[0] == 10 ||
-      (parts[0] == 192 && parts[1] == 168) ||
-      (parts[0] == 172 && parts[1]! >= 16 && parts[1]! <= 31);
-}
-
 /// Accept a backend origin, without embedded credentials or API paths.
 String? validateInvoiceApiUrl(String value) {
   final uri = Uri.tryParse(value.trim());
@@ -107,6 +54,18 @@ class InvoiceApiException implements Exception {
   String get message => switch (code) {
     'connection_error' => 'Could not connect to the invoice analysis server.',
     'analysis_timeout' => 'Analysis timed out. Try a smaller, clearer photo.',
+    'ai_not_configured' =>
+      'AI analysis has not been set up yet. Please contact support.',
+    'ai_authentication_failed' || 'ai_configuration_error' =>
+      'AI analysis is not configured correctly. Please contact support.',
+    'ai_rate_limited' =>
+      'AI analysis has reached its usage limit. Please try again later.',
+    'ai_model_unavailable' =>
+      'The selected AI model is unavailable. Please contact support.',
+    'ai_unavailable' =>
+      'AI analysis is temporarily unavailable. Please try again later.',
+    'analysis_refused' =>
+      'These details could not be analyzed. Try a clearer image or enter the details manually.',
     'ollama_unavailable' || 'model_not_installed' =>
       'Invoice analysis is temporarily unavailable. Please try again later.',
     'server_busy' =>

@@ -1,4 +1,4 @@
-"""Product identification shares invoice schemas, image validation and Ollama transport."""
+"""Product identification shares invoice schemas, image validation and AI transport."""
 import unicodedata
 
 from services.errors import InvoiceError
@@ -64,8 +64,8 @@ def product_from_text(value, current_price=None):
     return result
 
 
-def recognize_product(image_bytes, ollama, current_price=None):
-    raw = parse_invoice_json(ollama.generate(
+def recognize_product(image_bytes, ai_service, current_price=None):
+    raw = parse_invoice_json(ai_service.generate(
         image_bytes, PRODUCT_SCHEMA, PRODUCT_PROMPT, "Identify this retail product."
     ))
     product = retain_printed_condition(product_from_item(raw))

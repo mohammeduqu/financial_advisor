@@ -4,6 +4,8 @@
 <dict>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
 			<key>31.97.178.214</key>
@@ -13,6 +15,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connect to the configured local service to scan receipts and search prices during testing.</string>
 	<key>NSCameraUsageDescription</key><string>Take a photo of your receipt to review and record an expense.</string><key>NSPhotoLibraryUsageDescription</key><string>Choose a receipt image to review and record an expense.</string><key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key><array><string>en</string><string>ar</string></array><key>CFBundleDisplayName</key>

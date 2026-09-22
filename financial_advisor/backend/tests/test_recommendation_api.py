@@ -12,9 +12,7 @@ from app import create_app
 from config import load_settings
 from services.errors import InvoiceError
 from services.invoice_service import normalize_invoice
-from services.product_recognition_service import PRODUCT_SCHEMA, PRODUCT_PROMPT, reviewed_products
-from ollama_config import get_ollama_config
-from services.ollama_service import OllamaService
+from services.product_recognition_service import reviewed_products
 
 
 def photo():
@@ -42,9 +40,9 @@ class RecommendationApiTests(unittest.TestCase):
         self.environment = patch.dict(os.environ, {"SERPAPI_KEY": ""})
         self.environment.start()
         self.addCleanup(self.environment.stop)
-        self.ollama = Mock()
-        self.ollama.generate.return_value = json.dumps(product())
-        self.ollama.analyze.return_value = json.dumps(invoice())
+        self.ai_service = Mock()
+        self.ai_service.generate.return_value = json.dumps(product())
+        self.ai_service.analyze.return_value = json.dumps(invoice())
         self.shopping = Mock()
         self.shopping.search_products.return_value = {
             "offers": [{
@@ -55,7 +53,7 @@ class RecommendationApiTests(unittest.TestCase):
             }],
             "cached": False, "fetched_at": "2026-09-08T12:00:00+00:00", "query": "test",
         }
-        self.app = create_app(ollama=self.ollama, shopping=self.shopping)
+        self.app = create_app(ai_service=self.ai_service, shopping=self.shopping)
         self.app.config["TESTING"] = True
         self.client = self.app.test_client()
 
@@ -79,16 +77,16 @@ class RecommendationApiTests(unittest.TestCase):
         self.assertEqual(response.json["stage"], "review")
         self.assertEqual(response.json["products"][0]["variant"], "USB-C")
         self.assertEqual(response.json["products"][0]["unit_price"], 849)
-        self.ollama.generate.assert_called_once()
+        self.ai_service.generate.assert_called_once()
         self.shopping.search_products.assert_not_called()
 
     def test_recognition_does_not_assume_new_condition_from_appearance(self):
-        self.ollama.generate.return_value = json.dumps({**product(), "condition": "new"})
+        self.ai_service.generate.return_value = json.dumps({**product(), "condition": "new"})
         response = self.upload()
         self.assertIsNone(response.json["products"][0]["condition"])
         receipt = invoice()
         receipt["items"][0]["condition"] = "new"
-        self.ollama.analyze.return_value = json.dumps(receipt)
+        self.ai_service.analyze.return_value = json.dumps(receipt)
         self.assertIsNone(self.upload("invoice").json["invoice"]["items"][0]["condition"])
         reviewed = reviewed_products([{**product(), "condition": "new"}], "product")
         self.assertEqual(reviewed[0]["condition"], "new")
@@ -99,8 +97,8 @@ class RecommendationApiTests(unittest.TestCase):
         self.assertEqual(response.json["invoice"]["total"], 849)
         self.assertEqual(response.json["products"][0]["brand"], "Apple")
         self.assertEqual(response.json["invoice"]["items"][0]["model"], "AirPods Pro 2")
-        self.ollama.analyze.assert_called_once()
-        self.ollama.generate.assert_not_called()
+        self.ai_service.analyze.assert_called_once()
+        self.ai_service.generate.assert_not_called()
         self.shopping.search_products.assert_not_called()
 
     def test_confirmed_product_runs_real_comparison_without_another_model_call(self):
@@ -110,8 +108,8 @@ class RecommendationApiTests(unittest.TestCase):
         self.assertEqual(response.json["summary"]["potential_savings"], 100)
         self.assertEqual(response.json["recommendations"][0]["best_offer"]["currency"], "SAR")
         self.shopping.search_products.assert_called_once()
-        self.ollama.generate.assert_not_called()
-        self.ollama.analyze.assert_not_called()
+        self.ai_service.generate.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
 
     def test_confirmed_invoice_preserves_invoice_total_and_comparable_subset(self):
         source = invoice()
@@ -143,8 +141,8 @@ class RecommendationApiTests(unittest.TestCase):
         self.assertEqual([[offer["extracted_price"] for offer in item["offers"]] for item in response.json["recommendations"]], [[749, 779], [70, 80]])
         self.assertEqual(response.json["summary"]["potential_savings"], 160)
         self.assertIn("combined_search_limited_coverage", response.json["warnings"])
-        self.ollama.generate.assert_not_called()
-        self.ollama.analyze.assert_not_called()
+        self.ai_service.generate.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
 
     def test_oversized_combined_list_returns_actionable_400_without_search(self):
         items = [{"id": str(index), "name": f"Acme item {index} " + "x" * 300, "quantity": 1} for index in range(30)]
@@ -209,7 +207,7 @@ class RecommendationApiTests(unittest.TestCase):
             self.assertEqual(self.upload().json["code"], "server_busy")
         finally:
             slot.release()
-        self.ollama.generate.side_effect = InvoiceError("analysis_timeout", "Timed out", 504)
+        self.ai_service.generate.side_effect = InvoiceError("analysis_timeout", "Timed out", 504)
         self.assertEqual(self.upload().status_code, 504)
         self.assertTrue(slot.acquire(blocking=False))
         slot.release()
@@ -234,7 +232,7 @@ class RecommendationApiTests(unittest.TestCase):
         self.shopping.search_products.assert_not_called()
 
     def test_unidentified_product_and_invalid_image_do_not_search(self):
-        self.ollama.generate.return_value = '{"name":null}'
+        self.ai_service.generate.return_value = '{"name":null}'
         self.assertEqual(self.upload().json["code"], "unidentified_product")
         response = self.client.post("/api/recommendations/product",
                                     data={"image": (io.BytesIO(b"bad"), "bad.png")})
@@ -263,23 +261,6 @@ class ProductMetadataTests(unittest.TestCase):
         self.assertEqual((item["size_value"], item["size_unit"], item["pack_size"]), (2, "l", 6))
         self.assertEqual(item["confidence"], .93)
         self.assertEqual(item["condition"], "used")
-
-    @patch("services.ollama_service.requests.Session")
-    def test_product_and_invoice_share_private_vision_transport(self, session_class):
-        session = session_class.return_value.__enter__.return_value
-        response = session.post.return_value.__enter__.return_value
-        response.status_code = 200
-        response.iter_content.return_value = [json.dumps({
-            "done": True, "message": {"content": json.dumps(product())},
-        }).encode()]
-        config = get_ollama_config("runpod")
-        OllamaService(config=config).generate(b"photo", PRODUCT_SCHEMA, PRODUCT_PROMPT, "Identify")
-        args, kwargs = session.post.call_args
-        self.assertEqual(args[0], config.chat_url)
-        self.assertEqual(kwargs["json"]["model"], config.model)
-        self.assertEqual(kwargs["json"]["format"], PRODUCT_SCHEMA)
-        self.assertFalse(session.trust_env)
-        self.assertFalse(kwargs["allow_redirects"])
 
 
 class RecommendationConfigTests(unittest.TestCase):

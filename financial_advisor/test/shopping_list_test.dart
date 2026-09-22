@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:financial_advisor/config/flask_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -13,7 +14,6 @@ import 'package:financial_advisor/screens/recommendation_text.dart';
 import 'package:financial_advisor/screens/recommendation_review.dart';
 import 'package:financial_advisor/screens/recommendation_results.dart';
 import 'package:financial_advisor/screens/smart_prices.dart';
-import 'package:financial_advisor/services/invoice_service.dart';
 import 'package:financial_advisor/services/recommendation_service.dart';
 import 'package:financial_advisor/widgets/design.dart';
 import 'package:financial_advisor/widgets/offer_link.dart';
@@ -208,8 +208,8 @@ void main() {
     (tester) async {
       final store = FinanceStore(await SharedPreferences.getInstance());
       await store.prefs.setString(
-        invoiceApiPreference,
-        'http://localhost:5000',
+        'invoice_api_url',
+        'https://stale-api.example.com',
       );
       var calls = 0;
       await tester.pumpWidget(
@@ -223,8 +223,11 @@ void main() {
                   clientFactory:
                       () => MockClient((request) async {
                         calls++;
-                        expect(request.url.host, '31.97.178.214');
-                        expect(request.url.port, 5001);
+                        expect(request.url.origin, flaskApiUrl());
+                        expect(
+                          request.url.host,
+                          isNot('stale-api.example.com'),
+                        );
                         expect(jsonDecode(request.body), {'text': 'Milk'});
                         return http.Response(
                           jsonEncode(reviewJson('product')),
@@ -261,12 +264,11 @@ void main() {
       final store = FinanceStore(await SharedPreferences.getInstance());
       var calls = 0;
       final service = RecommendationService(
-        baseUrl: defaultInvoiceApiUrl(),
+        baseUrl: flaskApiUrl(),
         clientFactory:
             () => MockClient((request) async {
               calls++;
-              expect(request.url.host, '31.97.178.214');
-              expect(request.url.port, 5001);
+              expect(request.url.origin, flaskApiUrl());
               expect(request.url.path, '/api/recommendations/shopping-list');
               expect(jsonDecode(request.body)['products'][0]['quantity'], 3);
               expect(
@@ -820,14 +822,14 @@ void main() {
         'http://31.97.178.214:5001/private-trace',
       ]) {
         final service = RecommendationService(
-          baseUrl: deployedInvoiceApiUrl,
+          baseUrl: deployedFlaskUrl,
           clientFactory:
               () => MockClient(
                 (_) async => http.Response(
                   jsonEncode({
                     'success': false,
                     'code': code,
-                    'message': 'SERPAPI_KEY failed at $deployedInvoiceApiUrl',
+                    'message': 'SERPAPI_KEY failed at $deployedFlaskUrl',
                   }),
                   503,
                 ),

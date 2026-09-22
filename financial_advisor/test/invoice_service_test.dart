@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:financial_advisor/config/flask_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:financial_advisor/services/invoice_service.dart';
 
 void main() {
@@ -13,12 +13,12 @@ void main() {
     'multipart uploads image to Flask and parses real response contract',
     () async {
       final service = InvoiceService(
-        baseUrl: defaultInvoiceApiUrl(),
+        baseUrl: flaskApiUrl(),
         clientFactory:
             () => MockClient((request) async {
               expect(
                 request.url.toString(),
-                'http://31.97.178.214:5001/api/invoice/analyze',
+                '${flaskApiUrl()}/api/invoice/analyze',
               );
               expect(request.method, 'POST');
               expect(
@@ -220,7 +220,7 @@ void main() {
         'http://31.97.178.214:5001/private-trace',
       ]) {
         final service = InvoiceService(
-          baseUrl: deployedInvoiceApiUrl,
+          baseUrl: deployedFlaskUrl,
           clientFactory:
               () => MockClient(
                 (_) async => http.Response(
@@ -228,7 +228,7 @@ void main() {
                     'success': false,
                     'code': code,
                     'message':
-                        'Failed at $deployedInvoiceApiUrl; private server log',
+                        'Failed at $deployedFlaskUrl; private server log',
                   }),
                   503,
                 ),
@@ -251,56 +251,6 @@ void main() {
           ),
         );
       }
-    },
-  );
-
-  test(
-    'fresh installs and legacy local settings use the deployed backend',
-    () async {
-      for (final old in [
-        null,
-        '',
-        'http://127.0.0.1:5000',
-        'http://localhost:59612/',
-        'http://10.0.2.2:5000',
-        'http://192.168.1.100:5000',
-        'http://172.16.0.2:5000',
-        'http://[::1]:5000',
-      ]) {
-        SharedPreferences.setMockInitialValues({
-          if (old != null) invoiceApiPreference: old,
-          'numo_v1': 'existing financial records',
-        });
-        final prefs = await SharedPreferences.getInstance();
-        expect(
-          configuredInvoiceApiUrl(prefs),
-          deployedInvoiceApiUrl,
-          reason: '$old',
-        );
-        await migrateInvoiceApiUrl(prefs);
-        expect(prefs.getString(invoiceApiPreference), isNull);
-        expect(prefs.getString('numo_v1'), 'existing financial records');
-        await prefs.reload();
-        expect(configuredInvoiceApiUrl(prefs), deployedInvoiceApiUrl);
-      }
-    },
-  );
-
-  test(
-    'custom servers survive migration and manual selection survives restart',
-    () async {
-      SharedPreferences.setMockInitialValues({
-        invoiceApiPreference: 'https://api.example.com',
-      });
-      final prefs = await SharedPreferences.getInstance();
-      await migrateInvoiceApiUrl(prefs);
-      expect(configuredInvoiceApiUrl(prefs), 'https://api.example.com');
-      expect(await saveInvoiceApiUrl(prefs, 'http://localhost:5000'), isTrue);
-      await prefs.reload();
-      await migrateInvoiceApiUrl(prefs);
-      expect(configuredInvoiceApiUrl(prefs), 'http://localhost:5000');
-      expect(await saveInvoiceApiUrl(prefs, 'file:///tmp/a'), isFalse);
-      expect(configuredInvoiceApiUrl(prefs), 'http://localhost:5000');
     },
   );
 }

@@ -12,12 +12,17 @@ def load_settings(overrides=None):
     # Read only this backend's .env; real process environment takes precedence.
     values = {**dotenv_values(BACKEND_DIR / ".env"), **os.environ, **(overrides or {})}
     result = {
+        "OPENAI_API_KEY": str(values.get("OPENAI_API_KEY") or "").strip(),
+        "OPENAI_MODEL": str(values.get("OPENAI_MODEL") or "gpt-4.1-mini").strip(),
+        "OPENAI_IMAGE_DETAIL": str(values.get("OPENAI_IMAGE_DETAIL") or "high").strip().lower(),
         "SERPAPI_KEY": str(values.get("SERPAPI_KEY") or "").strip(),
         "SERPAPI_LANGUAGE": str(values.get("SERPAPI_LANGUAGE") or "en").lower(),
         "PRICE_CACHE_PATH": str(values.get("PRICE_CACHE_PATH") or BACKEND_DIR / "cache" / "searches.sqlite3"),
         "NUMO_ALLOWED_ORIGINS": str(values.get("NUMO_ALLOWED_ORIGINS") or ""),
     }
     limits = {
+        "OPENAI_TIMEOUT_SECONDS": (120, 1, 300, float),
+        "OPENAI_MAX_OUTPUT_TOKENS": (8192, 512, 32768, int),
         "PRICE_CACHE_TTL_SECONDS": (43200, 21600, 86400, int),
         "SERPAPI_TIMEOUT_SECONDS": (20, 1, 30, float),
         "RECOMMENDATION_MAX_SEARCHES": (8, 1, 20, int),
@@ -35,6 +40,13 @@ def load_settings(overrides=None):
         except (TypeError, ValueError, OverflowError):
             raise ValueError(f"Invalid setting {name}; expected {minimum} through {maximum}.") from None
         result[name] = value
+    if (not result["OPENAI_MODEL"] or len(result["OPENAI_MODEL"]) > 200
+            or any(character.isspace() or ord(character) < 32 for character in result["OPENAI_MODEL"])):
+        raise ValueError("OPENAI_MODEL must be a valid model ID without spaces.")
+    if any(character.isspace() or ord(character) < 32 for character in result["OPENAI_API_KEY"]):
+        raise ValueError("OPENAI_API_KEY must not contain spaces or line breaks.")
+    if result["OPENAI_IMAGE_DETAIL"] not in {"low", "high", "auto"}:
+        raise ValueError("OPENAI_IMAGE_DETAIL must be low, high or auto.")
     if result["SERPAPI_LANGUAGE"] not in {"en", "ar"}:
         raise ValueError("SERPAPI_LANGUAGE must be en or ar.")
     if not (result["RECOMMENDATION_MIN_SAVING_PERCENTAGE"] <=

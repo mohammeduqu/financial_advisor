@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/finance_store.dart';
 import '../l10n/app_language.dart';
-import '../services/invoice_service.dart';
+import '../config/flask_config.dart';
 import '../services/recommendation_service.dart';
 import '../widgets/design.dart';
 import 'recommendation_review.dart';
@@ -29,7 +29,7 @@ class _RecommendationTextPageState extends State<RecommendationTextPage> {
   @override
   void initState() {
     super.initState();
-    baseUrl = configuredInvoiceApiUrl(widget.store.prefs);
+    baseUrl = flaskApiUrl();
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core/finance_store.dart';
 import '../l10n/app_language.dart';
 import '../services/invoice_service.dart';
+import '../config/flask_config.dart';
 import '../services/recommendation_service.dart';
 import 'recommendation_review.dart';
 import '../widgets/design.dart';
@@ -45,7 +46,7 @@ class _ScanPageState extends State<ScanPage> {
   @override
   void initState() {
     super.initState();
-    baseUrl = configuredInvoiceApiUrl(widget.store.prefs);
+    baseUrl = flaskApiUrl();
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       recoverImage();
     }

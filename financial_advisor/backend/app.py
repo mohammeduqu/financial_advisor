@@ -8,8 +8,7 @@ from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from utils.origin_policy import allowed_origin_patterns, origin_is_allowed
 from services.errors import InvoiceError
 from services.invoice_service import MAX_IMAGE_BYTES, analyze_invoice, prepare_image
-from services.ollama_service import OllamaService
-from ollama_config import OllamaConfig, get_ollama_config
+from services.openai_service import OpenAIService
 from config import load_settings
 from cache.search_cache import SearchCache
 from services.serpapi_service import SerpApiService
@@ -23,7 +22,7 @@ class InMemoryUploadRequest(Request):
         return io.BytesIO()
 
 
-def create_app(ollama=None, shopping=None, recommendation_config=None):
+def create_app(ai_service=None, shopping=None, recommendation_config=None):
     settings = load_settings(recommendation_config)
     app = Flask(__name__)
     app.request_class = InMemoryUploadRequest
@@ -38,7 +37,7 @@ def create_app(ollama=None, shopping=None, recommendation_config=None):
          allow_headers=["Content-Type"], always_send=False)
     analysis_slot = threading.BoundedSemaphore(1)
     app.extensions["invoice_analysis_slot"] = analysis_slot
-    app.extensions["ollama_service"] = ollama if ollama is not None else OllamaService()
+    app.extensions["ai_service"] = ai_service if ai_service is not None else OpenAIService(settings)
     shopping = shopping if shopping is not None else SerpApiService(
         api_key=settings["SERPAPI_KEY"],
         cache=SearchCache(settings["PRICE_CACHE_PATH"], ttl_seconds=settings["PRICE_CACHE_TTL_SECONDS"]),
@@ -65,10 +64,14 @@ def create_app(ollama=None, shopping=None, recommendation_config=None):
     @app.get("/api/health")
     def health():
         # This reports Flask availability, not model readiness or inference success.
-        model_config = getattr(app.extensions["ollama_service"], "config", None)
-        if not isinstance(model_config, OllamaConfig):
-            model_config = get_ollama_config()
-        return jsonify(success=True, service="numo-local-invoice", model=model_config.model)
+        service = app.extensions["ai_service"]
+        model = getattr(service, "model", None)
+        configured = getattr(service, "configured", None)
+        return jsonify(
+            success=True, service="numo-invoice", provider="openai",
+            model=model if isinstance(model, str) else settings["OPENAI_MODEL"],
+            model_configured=configured if isinstance(configured, bool) else bool(settings["OPENAI_API_KEY"]),
+        )
 
     @app.post("/api/invoice/analyze")
     def analyze():
@@ -79,7 +82,7 @@ def create_app(ollama=None, shopping=None, recommendation_config=None):
             raise InvoiceError("server_busy", "Another invoice is being analyzed. Please try again shortly.", 503)
         try:
             image_bytes = prepare_image(files[0].read(MAX_IMAGE_BYTES + 1))
-            invoice, warning_codes = analyze_invoice(image_bytes, app.extensions["ollama_service"])
+            invoice, warning_codes = analyze_invoice(image_bytes, app.extensions["ai_service"])
             return jsonify(success=True, invoice=invoice, warnings=warning_codes)
         finally:
             analysis_slot.release()
@@ -111,5 +114,5 @@ def create_app(ollama=None, shopping=None, recommendation_config=None):
 app = create_app()
 
 if __name__ == "__main__":
-    # Development server. Configure the model target in ollama_config.py.
+    # Development server. Set OPENAI_API_KEY and OPENAI_MODEL in backend/.env.
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False, threaded=True)

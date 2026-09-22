@@ -38,7 +38,7 @@ class InvoiceReviewScreen extends StatefulWidget {
 class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
   final form = GlobalKey<FormState>();
   late final String id;
-  late final TextEditingController merchant, number, date, currency;
+  late final TextEditingController merchant, number, date;
   late final TextEditingController subtotal, tax, discount, total;
   final List<_ItemFields> items = [];
   late String category;
@@ -61,7 +61,6 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
         'en',
       ).format(widget.existingEntry?.date ?? DateTime.now()),
     );
-    currency = TextEditingController(text: value.currency ?? '');
     subtotal = TextEditingController(text: amountText(value.subtotal));
     tax = TextEditingController(text: amountText(value.tax));
     discount = TextEditingController(text: amountText(value.discount));
@@ -72,16 +71,7 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
 
   @override
   void dispose() {
-    for (final c in [
-      merchant,
-      number,
-      date,
-      currency,
-      subtotal,
-      tax,
-      discount,
-      total,
-    ]) {
+    for (final c in [merchant, number, date, subtotal, tax, discount, total]) {
       c.dispose();
     }
     for (final item in items) {
@@ -118,7 +108,7 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
     merchantName: merchant.text.trim(),
     invoiceNumber: number.text.trim().isEmpty ? null : number.text.trim(),
     date: parsedDate(),
-    currency: currency.text.trim().toUpperCase(),
+    currency: widget.store.currency.trim().toUpperCase(),
     subtotal: numberValue(subtotal),
     tax: numberValue(tax),
     discount: numberValue(discount),
@@ -180,10 +170,6 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
     if (merchant.text.trim().isEmpty) return 'Enter a name';
     if (parsedDate() == null) {
       return 'Enter a valid invoice date, no later than today';
-    }
-    if (currency.text.trim().toUpperCase() !=
-        widget.store.currency.toUpperCase()) {
-      return 'Invoice currency must match your account (${widget.store.currency}).';
     }
     if (parseMoney(total.text) == null) {
       return 'Use a positive amount with up to 2 decimals';
@@ -456,24 +442,6 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
                           )
                           : null,
             ),
-            field(
-              'Currency',
-              currency,
-              validator:
-                  (v) =>
-                      v?.trim().toUpperCase() !=
-                              widget.store.currency.toUpperCase()
-                          ? tr(
-                            context,
-                            'Invoice currency must match your account ({0}).'
-                                .replaceFirst('{0}', widget.store.currency),
-                          )
-                          : null,
-            ),
-            const AppText(
-              'No currency conversion is performed. Use an invoice in your account currency.',
-            ),
-            const SizedBox(height: 16),
             field('Subtotal', subtotal, numeric: true),
             field('Tax', tax, numeric: true),
             field('Discount', discount, numeric: true),

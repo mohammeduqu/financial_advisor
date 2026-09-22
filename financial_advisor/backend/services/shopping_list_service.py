@@ -116,7 +116,7 @@ def normalize_shopping_list(raw):
     }
 
 
-def recognize_shopping_list(ollama, *, text=None, image_bytes=None):
+def recognize_shopping_list(ai_service, *, text=None, image_bytes=None):
     if (text is None) == (image_bytes is None):
         raise InvoiceError("invalid_shopping_list", "Provide either list text or one image.", 400)
     if text is not None:
@@ -128,7 +128,7 @@ def recognize_shopping_list(ollama, *, text=None, image_bytes=None):
         )
     else:
         user_prompt = "Read the attached shopping list or invoice. Extract retail items only."
-    model_text = ollama.generate(image_bytes, LIST_SCHEMA, LIST_PROMPT, user_prompt)
+    model_text = ai_service.generate(image_bytes, LIST_SCHEMA, LIST_PROMPT, user_prompt)
     try:
         raw = parse_invoice_json(model_text)
     except InvoiceError:

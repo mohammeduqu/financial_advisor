@@ -1,8 +1,8 @@
+import 'package:financial_advisor/config/flask_config.dart';
 import 'package:financial_advisor/core/finance_store.dart';
 import 'package:financial_advisor/l10n/app_language.dart';
 import 'package:financial_advisor/screens/recommendation_text.dart';
 import 'package:financial_advisor/screens/scan.dart';
-import 'package:financial_advisor/services/invoice_service.dart';
 import 'package:financial_advisor/services/recommendation_service.dart';
 import 'package:financial_advisor/widgets/design.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +50,7 @@ void main() {
         await tester.binding.setSurfaceSize(const Size(430, 1200));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final prefs = await SharedPreferences.getInstance();
-        await saveInvoiceApiUrl(prefs, 'http://192.0.2.22:5001');
+        await prefs.setString('invoice_api_url', 'http://192.0.2.22:5001');
         final store = FinanceStore(prefs);
         await tester.pumpWidget(
           app(
@@ -69,7 +69,7 @@ void main() {
         await tester.drag(find.byType(ListView), const Offset(0, -1000));
         await tester.pumpAndSettle();
         expectNoServerDetails(tester);
-        expect(configuredInvoiceApiUrl(prefs), 'http://192.0.2.22:5001');
+        expect(prefs.getString('invoice_api_url'), 'http://192.0.2.22:5001');
         expect(tester.takeException(), isNull);
       });
     }
@@ -93,7 +93,7 @@ void main() {
                       clientFactory:
                           () => MockClient((request) async {
                             calls++;
-                            expect(request.url.host, '31.97.178.214');
+                            expect(request.url.origin, flaskApiUrl());
                             return http.Response(
                               '<html>Failed at $baseUrl; private server trace</html>',
                               502,

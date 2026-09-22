@@ -12,13 +12,11 @@ import 'screens/transactions.dart';
 import 'screens/scan.dart';
 import 'screens/smart_prices.dart';
 import 'screens/plan.dart';
-import 'services/invoice_service.dart';
 import 'widgets/recurring_entry_scheduler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = FinanceStore(await SharedPreferences.getInstance());
-  await migrateInvoiceApiUrl(store.prefs);
   await store.load();
   runApp(TadbeerApp(store: store));
 }

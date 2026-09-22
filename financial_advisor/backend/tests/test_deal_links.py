@@ -26,9 +26,9 @@ class DealTests(unittest.TestCase):
             api_key="synthetic-test-key", cache=SearchCache(self.cache_path),
             session_factory=self.transport.session,
         )
-        self.ollama = Mock()
+        self.ai_service = Mock()
         self.app = create_app(
-            ollama=self.ollama, shopping=self.shopping,
+            ai_service=self.ai_service, shopping=self.shopping,
             recommendation_config={"SERPAPI_KEY": "synthetic-test-key"},
         )
         self.client = self.app.test_client()
@@ -88,8 +88,8 @@ class DealTests(unittest.TestCase):
             for _ in range(2):
                 with self.subTest(body=body):
                     self.assert_disabled(self.client.post("/api/recommendations/deal", json=body))
-        self.ollama.analyze.assert_not_called()
-        self.ollama.generate.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
+        self.ai_service.generate.assert_not_called()
 
     def test_unconfigured_provider_still_returns_retirement_without_access(self):
         self.shopping.api_key = ""

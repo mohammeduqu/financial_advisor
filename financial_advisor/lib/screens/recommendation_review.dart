@@ -4,7 +4,7 @@ import '../core/finance_store.dart';
 import '../core/invoice.dart';
 import '../core/recommendation.dart';
 import '../l10n/app_language.dart';
-import '../services/invoice_service.dart';
+import '../config/flask_config.dart';
 import '../services/recommendation_service.dart';
 import '../widgets/design.dart';
 import 'recommendation_results.dart';
@@ -37,11 +37,7 @@ class _RecommendationReviewPageState extends State<RecommendationReviewPage> {
   void initState() {
     super.initState();
     products = widget.review.products.map(_ProductFields.new).toList();
-    service =
-        widget.service ??
-        RecommendationService(
-          baseUrl: configuredInvoiceApiUrl(widget.store.prefs),
-        );
+    service = widget.service ?? RecommendationService(baseUrl: flaskApiUrl());
   }
 
   @override

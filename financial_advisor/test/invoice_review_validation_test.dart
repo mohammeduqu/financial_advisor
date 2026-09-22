@@ -85,7 +85,7 @@ void main() {
     );
   }
 
-  testWidgets('currency mismatch cannot save into the account currency', (
+  testWidgets('detected currency saves using the selected account currency', (
     tester,
   ) async {
     final store = await openInvoice(
@@ -99,9 +99,12 @@ void main() {
       ),
     );
     await pressAddExpense(tester);
-    expect(store.entries, isEmpty);
-    expect(find.byType(InvoiceReviewScreen), findsOneWidget);
-    expect(store.expensesFor(DateTime(2024, 3)), 0);
+    expect(store.entries, hasLength(1));
+    expect(store.entries.single.invoice!.currency, 'SAR');
+    expect(store.entries.single.invoice!.total, 25);
+    expect(store.entries.single.cents, 2500);
+    expect(find.byType(InvoiceReviewScreen), findsNothing);
+    expect(store.expensesFor(DateTime.now()), 2500);
     expect(tester.takeException(), isNull);
   });
 

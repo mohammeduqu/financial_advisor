@@ -91,6 +91,18 @@ const arabic = <String, String>{
       'الخدمة غير مهيأة بشكل صحيح. يرجى التواصل مع الدعم.',
   'Invoice analysis is temporarily unavailable. Please try again later.':
       'تحليل الفواتير غير متاح مؤقتاً. يرجى المحاولة لاحقاً.',
+  'AI analysis has not been set up yet. Please contact support.':
+      'لم يتم إعداد التحليل بالذكاء الاصطناعي بعد. يرجى التواصل مع الدعم.',
+  'AI analysis is not configured correctly. Please contact support.':
+      'خدمة التحليل بالذكاء الاصطناعي غير مهيأة بشكل صحيح. يرجى التواصل مع الدعم.',
+  'AI analysis has reached its usage limit. Please try again later.':
+      'وصلت خدمة التحليل بالذكاء الاصطناعي إلى حد الاستخدام. يرجى المحاولة لاحقاً.',
+  'The selected AI model is unavailable. Please contact support.':
+      'نموذج الذكاء الاصطناعي المحدد غير متاح. يرجى التواصل مع الدعم.',
+  'AI analysis is temporarily unavailable. Please try again later.':
+      'التحليل بالذكاء الاصطناعي غير متاح مؤقتاً. يرجى المحاولة لاحقاً.',
+  'These details could not be analyzed. Try a clearer image or enter the details manually.':
+      'تعذر تحليل هذه التفاصيل. جرّب صورة أوضح أو أدخل التفاصيل يدوياً.',
   'Price search is temporarily unavailable. Please try again later.':
       'البحث عن الأسعار غير متاح مؤقتاً. يرجى المحاولة لاحقاً.',
   'Price search is busy. Please try again later.':

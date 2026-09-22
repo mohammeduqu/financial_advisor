@@ -1,17 +1,13 @@
-import base64
 import io
 import json
 import unittest
 from unittest.mock import Mock, patch
 
-import requests
 from PIL import Image
 
 from app import create_app
-from ollama_config import get_ollama_config
 from services.errors import InvoiceError
 from services.invoice_service import normalize_invoice, prepare_image
-from services.ollama_service import INVOICE_SCHEMA, OllamaService
 from utils.json_utils import parse_invoice_json
 
 
@@ -174,9 +170,9 @@ class ImageValidationTests(unittest.TestCase):
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
-        self.ollama = Mock()
-        self.ollama.analyze.return_value = json.dumps(example_invoice())
-        self.app = create_app(ollama=self.ollama)
+        self.ai_service = Mock()
+        self.ai_service.analyze.return_value = json.dumps(example_invoice())
+        self.app = create_app(ai_service=self.ai_service)
         self.app.config["TESTING"] = True
         self.client = self.app.test_client()
 
@@ -194,20 +190,20 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json["invoice"]["total"], 115)
         self.assertEqual(len(response.json["invoice"]["items"]), 2)
         self.assertEqual(response.headers["Cache-Control"], "no-store")
-        self.ollama.analyze.assert_called_once()
+        self.ai_service.analyze.assert_called_once()
 
     def test_rejects_missing_and_invalid_images_before_inference(self):
         response = self.client.post("/api/invoice/analyze")
         self.assertEqual(response.json["code"], "missing_image")
         self.assertEqual(self.upload(b"bad image").status_code, 400)
-        self.ollama.analyze.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
 
     def test_bounds_request_body(self):
         self.app.config["MAX_CONTENT_LENGTH"] = 50
         response = self.upload()
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.json["code"], "image_too_large")
-        self.ollama.analyze.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
 
     def test_busy_response_then_slot_can_be_used_again(self):
         slot = self.app.extensions["invoice_analysis_slot"]
@@ -222,15 +218,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.upload().status_code, 200)
 
     def test_failure_releases_slot_and_does_not_leak_model_output(self):
-        self.ollama.analyze.side_effect = RuntimeError("PRIVATE RECEIPT CONTENT")
+        self.ai_service.analyze.side_effect = RuntimeError("PRIVATE RECEIPT CONTENT")
         response = self.upload()
         self.assertEqual(response.status_code, 500)
         self.assertNotIn("PRIVATE", response.get_data(as_text=True))
-        self.ollama.analyze.side_effect = None
+        self.ai_service.analyze.side_effect = None
         self.assertEqual(self.upload().status_code, 200)
 
     def test_safe_error_code_survives_to_flutter(self):
-        self.ollama.analyze.side_effect = InvoiceError("analysis_timeout", "Analysis timed out.", 504)
+        self.ai_service.analyze.side_effect = InvoiceError("analysis_timeout", "Analysis timed out.", 504)
         response = self.upload()
         self.assertEqual(response.status_code, 504)
         self.assertEqual(response.json["code"], "analysis_timeout")
@@ -239,7 +235,7 @@ class ApiTests(unittest.TestCase):
         response = self.upload(headers={"Origin": "https://unrelated.example"})
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json["code"], "forbidden_origin")
-        self.ollama.analyze.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
 
     def test_local_preview_origin_is_allowed(self):
         response = self.upload(headers={"Origin": "http://127.0.0.1:8080"})
@@ -249,81 +245,15 @@ class ApiTests(unittest.TestCase):
     def test_health_does_not_claim_model_readiness(self):
         response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["service"], "numo-local-invoice")
-        self.ollama.analyze.assert_not_called()
-
-
-class OllamaServiceTests(unittest.TestCase):
-    def request_mock(self, session_class, status=200, envelope=None):
-        session = session_class.return_value.__enter__.return_value
-        response = session.post.return_value.__enter__.return_value
-        response.status_code = status
-        response.iter_content.return_value = [json.dumps(envelope or {
-            "done": True, "done_reason": "stop", "message": {"content": json.dumps(example_invoice())}
-        }).encode()]
-        return session, response
-
-    @patch("services.ollama_service.requests.Session")
-    def test_loopback_vision_schema_payload_and_no_environment_proxy(self, session_class):
-        session, _ = self.request_mock(session_class)
-        config = get_ollama_config("local")
-        result = OllamaService(config=config).analyze(b"real-image-bytes")
-        self.assertEqual(json.loads(result)["total"], 115)
-        args, kwargs = session.post.call_args
-        self.assertEqual(args[0], config.chat_url)
-        self.assertEqual(config.chat_url, "http://127.0.0.1:11434/api/chat")
-        self.assertFalse(session.trust_env)
-        self.assertFalse(kwargs["allow_redirects"])
-        self.assertEqual(kwargs["timeout"], (5, 300))
-        self.assertEqual(kwargs["json"]["model"], config.model)
-        self.assertNotIn("think", kwargs["json"])
-        self.assertEqual(kwargs["json"]["format"], INVOICE_SCHEMA)
-        self.assertEqual(kwargs["json"]["messages"][1]["images"], [base64.b64encode(b"real-image-bytes").decode()])
-        self.assertFalse(kwargs["json"]["stream"])
-
-    @patch("services.ollama_service.requests.Session")
-    def test_missing_model_is_actionable(self, session_class):
-        self.request_mock(session_class, status=404)
-        with self.assertRaises(InvoiceError) as raised:
-            OllamaService().analyze(b"image")
-        self.assertEqual(raised.exception.code, "model_not_installed")
-        self.assertEqual(raised.exception.status, 503)
-
-    @patch("services.ollama_service.requests.Session")
-    def test_timeout_and_unavailable_are_distinct(self, session_class):
-        session, _ = self.request_mock(session_class)
-        for failure, code in ((requests.Timeout(), "analysis_timeout"),
-                              (requests.ConnectionError(), "ollama_unavailable")):
-            with self.subTest(code=code):
-                session.post.side_effect = failure
-                with self.assertRaises(InvoiceError) as raised:
-                    OllamaService().analyze(b"image")
-                self.assertEqual(raised.exception.code, code)
-
-    @patch("services.ollama_service.requests.Session")
-    def test_truncated_extraction_is_not_accepted_as_complete(self, session_class):
-        self.request_mock(session_class, envelope={
-            "done": True, "done_reason": "length", "message": {"content": '{"items": []}'}
-        })
-        with self.assertRaises(InvoiceError) as raised:
-            OllamaService().analyze(b"image")
-        self.assertEqual(raised.exception.code, "incomplete_analysis")
-
-    @patch("services.ollama_service.requests.Session")
-    def test_oversized_model_output_is_bounded(self, session_class):
-        _, response = self.request_mock(session_class)
-        response.iter_content.return_value = [b"x" * 1_048_577]
-        with self.assertRaises(InvoiceError) as raised:
-            OllamaService().analyze(b"image")
-        self.assertEqual(raised.exception.code, "analysis_failed")
-
+        self.assertEqual(response.json["service"], "numo-invoice")
+        self.ai_service.analyze.assert_not_called()
 
 
 class BrowserReopenTests(unittest.TestCase):
     def setUp(self):
-        self.ollama = Mock()
-        self.ollama.analyze.return_value = json.dumps(example_invoice())
-        self.app = create_app(self.ollama)
+        self.ai_service = Mock()
+        self.ai_service.analyze.return_value = json.dumps(example_invoice())
+        self.app = create_app(self.ai_service)
         self.client = self.app.test_client()
 
     def test_reopened_flutter_ports_are_allowed_and_echoed(self):
@@ -350,7 +280,7 @@ class BrowserReopenTests(unittest.TestCase):
         self.assertEqual(response.headers["Access-Control-Allow-Origin"], origin)
         self.assertIn("POST", response.headers["Access-Control-Allow-Methods"])
         self.assertIn("content-type", response.headers["Access-Control-Allow-Headers"].lower())
-        self.ollama.analyze.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
 
     def test_unrelated_or_malformed_origins_cannot_analyze_invoices(self):
         for origin in ["https://unrelated.example", "http://localhost.evil.example:60101",
@@ -365,11 +295,11 @@ class BrowserReopenTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 403)
                 self.assertEqual(response.json["code"], "forbidden_origin")
                 self.assertNotIn("Access-Control-Allow-Origin", response.headers)
-        self.ollama.analyze.assert_not_called()
+        self.ai_service.analyze.assert_not_called()
 
     @patch.dict("os.environ", {"NUMO_ALLOWED_ORIGINS": "http://192.168.1.163:8080"})
     def test_explicit_lan_origin_is_exact_and_preserves_loopback(self):
-        client = create_app(self.ollama).test_client()
+        client = create_app(self.ai_service).test_client()
         for origin, status in [("http://192.168.1.163:8080", 200),
                                ("http://192.168.1.163:8081", 403),
                                ("http://localhost:60101", 200)]:
