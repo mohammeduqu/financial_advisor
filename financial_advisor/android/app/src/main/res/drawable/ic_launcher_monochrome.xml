@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Filled wallet silhouette for themed launchers; color artwork is kept intact separately. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="1254" android:viewportHeight="1254">
+    <group android:pivotX="627" android:pivotY="627" android:scaleX="0.6666667" android:scaleY="0.6666667">
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+            android:pathData="M207,497 Q207,419 271,389 L813,240 Q885,218 925,271 Q945,298 945,374 Q1001,363 1031,411 Q1049,437 1049,469 L1049,577 Q1063,605 1063,638 L1063,934 Q1063,1014 980,1014 L282,1014 Q207,1014 207,939 Z M266,516 Q264,486 292,478 L881,347 Q922,330 945,363 L945,374 Z M266,627 Q261,596 290,590 L949,493 Q989,480 989,527 Z M752,754 L944,722 Q991,711 991,758 L991,897 Q991,939 945,939 L752,939 Q704,938 704,890 L704,812 Q704,792 722,774 Z M757,769 L943,738 Q976,730 976,760 L976,897 Q976,921 948,922 L752,922 Q722,922 721,896 L721,814 Q721,803 735,789 Z" />
+    </group>
+</vector>

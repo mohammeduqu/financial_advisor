@@ -1,0 +1,40 @@
+# Secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+key.properties
+local.properties
+
+# Generated builds, dependencies, and local runtime data
+build/
+.dart_tool/
+.gradle/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+.runtime/
+uploads/
+*.sqlite3*
+*.db
+
+# Local design backups, rendered previews, and cached search responses
+/financial_advisor/output/
+/financial_advisor/backend/cache/*
+!/financial_advisor/backend/cache/__init__.py
+!/financial_advisor/backend/cache/search_cache.py
+
+# Editor and OS files
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp

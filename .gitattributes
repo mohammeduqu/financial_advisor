@@ -1,0 +1,5 @@
+# Keep text history consistent across Windows, Linux, and macOS.
+* text=auto
+*.sh text eol=lf
+**/gradlew text eol=lf
+*.bat text eol=crlf

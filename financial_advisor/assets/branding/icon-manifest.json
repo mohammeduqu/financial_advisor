@@ -1,0 +1,260 @@
+{
+  "design": "Tadbeer / approved filled wallet with blue-to-teal background",
+  "source": "assets/branding/source/tadbeer-filled-blue-teal-approved.png",
+  "background": "Approved image gradient; Android full-bleed gradient drawable",
+  "android": {
+    "background": "android/app/src/main/res/drawable/ic_launcher_background.xml",
+    "monochrome": "android/app/src/main/res/drawable/ic_launcher_monochrome.xml",
+    "artwork_viewport_dp": 72,
+    "layer_size_dp": 108
+  },
+  "exports": [
+    {
+      "path": "assets/branding/tadbeer-icon-1024.png",
+      "size": 1024,
+      "mode": "RGB"
+    },
+    {
+      "path": "assets/branding/tadbeer-logo.png",
+      "size": 64,
+      "mode": "RGB"
+    },
+    {
+      "path": "assets/branding/2.0x/tadbeer-logo.png",
+      "size": 128,
+      "mode": "RGB"
+    },
+    {
+      "path": "assets/branding/3.0x/tadbeer-logo.png",
+      "size": 192,
+      "mode": "RGB"
+    },
+    {
+      "path": "assets/branding/4.0x/tadbeer-logo.png",
+      "size": 256,
+      "mode": "RGB"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "size": 48,
+      "mode": "RGB"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-mdpi/ic_launcher_foreground.png",
+      "size": 108,
+      "mode": "RGBA"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "size": 72,
+      "mode": "RGB"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-hdpi/ic_launcher_foreground.png",
+      "size": 162,
+      "mode": "RGBA"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "size": 96,
+      "mode": "RGB"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-xhdpi/ic_launcher_foreground.png",
+      "size": 216,
+      "mode": "RGBA"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "size": 144,
+      "mode": "RGB"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png",
+      "size": 324,
+      "mode": "RGBA"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "size": 192,
+      "mode": "RGB"
+    },
+    {
+      "path": "android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground.png",
+      "size": 432,
+      "mode": "RGBA"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png",
+      "size": 40,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png",
+      "size": 60,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png",
+      "size": 29,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png",
+      "size": 58,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png",
+      "size": 87,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png",
+      "size": 80,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png",
+      "size": 120,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png",
+      "size": 120,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png",
+      "size": 180,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png",
+      "size": 20,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png",
+      "size": 40,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png",
+      "size": 76,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png",
+      "size": 152,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png",
+      "size": 167,
+      "mode": "RGB"
+    },
+    {
+      "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "size": 1024,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/icons/Icon-192.png",
+      "size": 192,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/icons/Icon-maskable-192.png",
+      "size": 192,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/icons/Icon-512.png",
+      "size": 512,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/icons/Icon-maskable-512.png",
+      "size": 512,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/icons/apple-touch-icon.png",
+      "size": 180,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/favicon.png",
+      "size": 32,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/icons/favicon-16.png",
+      "size": 16,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/icons/favicon-48.png",
+      "size": 48,
+      "mode": "RGB"
+    },
+    {
+      "path": "web/favicon.ico",
+      "sizes": [
+        16,
+        32,
+        48
+      ],
+      "mode": "ICO"
+    },
+    {
+      "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png",
+      "size": 16,
+      "mode": "RGB"
+    },
+    {
+      "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png",
+      "size": 32,
+      "mode": "RGB"
+    },
+    {
+      "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png",
+      "size": 64,
+      "mode": "RGB"
+    },
+    {
+      "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png",
+      "size": 128,
+      "mode": "RGB"
+    },
+    {
+      "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png",
+      "size": 256,
+      "mode": "RGB"
+    },
+    {
+      "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png",
+      "size": 512,
+      "mode": "RGB"
+    },
+    {
+      "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png",
+      "size": 1024,
+      "mode": "RGB"
+    },
+    {
+      "path": "windows/runner/resources/app_icon.ico",
+      "sizes": [
+        16,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "mode": "ICO"
+    }
+  ]
+}

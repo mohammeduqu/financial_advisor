@@ -1,0 +1,22 @@
+{
+  "tool": "Built-in image_gen",
+  "selected_design": "02 / Tadbeer wallet",
+  "prompts": [
+    {
+      "stage": "Extract chosen symbol",
+      "prompt": "Use case: precise-object-edit, logo-brand. The attached image is a sheet of ten logo concepts. Extract ONLY option 02, Tadbeer, the wallet symbol in the top row second column, preserving its design faithfully. Create a single app icon foreground master. Symbol consists of the exact selected mint outline of an organized wallet: a rounded rectangular wallet body, an angled raised top back/card edge, a second horizontal/slightly angled open divider across the top, and a small solid muted-gold clipped-corner compartment at the lower right inside the wallet. Preserve this distinctive geometry and relationship of all parts. Mint #73CBB0 outline, muted gold #C5B185 compartment. No words or letters, no Tadbeer label, no numbers, no Arabic label, no other symbols, no grid. Flat clean fills, smooth thick strokes, no gradients, texture, drop shadows or 3D. Export a genuine transparent PNG with an alpha channel, with empty transparent pixels everywhere outside the mint and gold symbol AND inside the empty wallet compartments; do not draw a checkerboard or simulate transparency. Square 1024 by 1024 composition; symbol perfectly centered, taking about 68 percent of canvas width and 68 percent of canvas height, generous padding on every side. This single artwork will be resized into consistent Android, iOS, web and Flutter assets on the app's deep navy background. No background layer should be painted in this foreground image."
+    },
+    {
+      "stage": "Transparency refinement",
+      "prompt": "Precise edit of attached Tadbeer wallet symbol. Preserve exactly the mint wallet outline and the small gold compartment, their placement, geometry, thickness, shape and colors. Remove every gray checkerboard pixel around and INSIDE the wallet to create TRUE transparent empty pixels in the PNG alpha channel. The only visible shapes should be the mint wallet and gold compartment. Do not draw or retain any checkerboard, gray paper, background texture, or simulated transparency. A real transparent cutout PNG for an Android adaptive icon foreground. No added text or elements. Same square composition and generous padding. Crisp edges."
+    },
+    {
+      "stage": "Opaque preview",
+      "prompt": "Edit this Tadbeer wallet logo image. Keep the wallet and gold compartment exactly unchanged. Replace the entire gray checkerboard background, including all empty areas inside the wallet, with completely uniform solid dark navy #090F18. Output an OPAQUE square finished app icon: every pixel alpha=255, no transparency or checkerboard. No texture, no gradient or shadows in the background. Use smooth crisp mint wallet outlines and muted gold compartment. Same placement and scale; no text or extra elements."
+    },
+    {
+      "stage": "Final transparent foreground",
+      "prompt": "Export the isolated foreground of this Tadbeer wallet icon as a true transparent PNG with an alpha channel. Keep the exact wallet shape and small gold compartment. Remove the dark navy background everywhere around and between the wallet outlines, leaving empty transparent pixels. Do not draw a checkerboard or any representation of transparency. The only visible pixels are the mint wallet and gold compartment. Use the softly muted mint color #73CBB0 for the wallet and gold #C5B185 for the compartment, avoiding neon green. Preserve this exact square canvas, scale, placement and antialiased edges. No text, new features, or shadows. This is the Android adaptive icon foreground, with actual transparency."
+    }
+  ]
+}

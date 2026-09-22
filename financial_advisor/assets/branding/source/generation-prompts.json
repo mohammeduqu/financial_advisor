@@ -1,0 +1,18 @@
+{
+  "tool": "Built-in image_gen",
+  "selected_design": "07 / Safe Nest",
+  "prompts": [
+    {
+      "stage": "Extract selected direction",
+      "prompt": "Use case: logo-brand; precise-object-edit. The attached image is the edit target: a sheet of ten Numo logo directions. Extract and professionally clean ONLY concept '07 / Safe Nest', in the bottom row, second column from the left. Output a single standalone symbol, not the comparison sheet. Preserve the selected symbol identity faithfully: exactly three separate nested upward-opening smooth U-shaped navy arcs with rounded terminals, the outer arc widest and lowest, the inner arc narrowest and highest, cradling one muted gold circular coin centered above the inner arc. Keep the familiar silhouette and proportions of concept 7. Crisp solid flat fills: deep navy #152C3F arcs, muted gold #C6A44D circular coin. Remove lettering 'Numo', numbers, captions, grid, and every other logo. No added outline on coin, no embossing, no gradients, no texture, no shadows, no wordmark. Professional clean vector-like edges. Transparent alpha background, no white or colored canvas and no checkerboard baked into image. Square 1024x1024 composition; logo centered with generous equal padding, the entire symbol fitting in a central 700x600 area so arcs never touch image edge. This is the master artwork to export consistently into exact Android, iOS and web app icon resolutions. Only this one symbol with transparent surrounding pixels."
+    },
+    {
+      "stage": "Opaque icon artwork",
+      "prompt": "Precise image edit. Edit target: attached Numo Safe Nest symbol. Keep this exact single gold coin and exactly three navy upward-opening nested arcs, positions, size and silhouette unchanged. Replace ALL gray checkerboard background throughout, including spaces between arcs and around the coin, with one perfectly uniform solid warm ivory color #F7F4ED. This is an OPAQUE square app icon master, no transparency, no checkerboard, no pattern. Flatten the shapes to solid colors: navy arcs #152C3F and coin #C6A44D, crisp smooth edges, no shading, no speckles, no gradients. No text. Keep ample padding and the logo centered. Single 1024 by 1024 square image. The only contents are the navy nest arcs and gold coin on a completely plain ivory background."
+    },
+    {
+      "stage": "Final transparent source",
+      "prompt": "Edit the attached icon to export its isolated foreground as a true transparent PNG with an alpha channel. Keep the gold coin and all three navy nest arcs exactly as they are. Delete the ivory background everywhere around and between these four shapes, leaving empty transparent pixels. Do not draw a checkerboard or any representation of transparency. The only visible pixels in the output are the single gold coin and the three navy arcs. Preserve the same square canvas, scale, placement, and smooth antialiased edges of the source. No text or new features. This is an Android adaptive icon foreground asset, which must have actual transparency."
+    }
+  ]
+}
