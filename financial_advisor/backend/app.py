@@ -16,6 +16,8 @@ from services.recommendation_service import RecommendationService
 from routes.recommendation_routes import register_recommendations
 from routes.deal_routes import register_deal_routes
 from routes.product_search_routes import register_product_search
+from routes.financial_insights_routes import register_financial_insights
+from services.financial_insights_service import FinancialInsightsService
 
 
 class InMemoryUploadRequest(Request):
@@ -23,7 +25,7 @@ class InMemoryUploadRequest(Request):
         return io.BytesIO()
 
 
-def create_app(ai_service=None, shopping=None, recommendation_config=None):
+def create_app(ai_service=None, shopping=None, recommendation_config=None, insights_service=None):
     settings = load_settings(recommendation_config)
     app = Flask(__name__)
     app.request_class = InMemoryUploadRequest
@@ -49,6 +51,9 @@ def create_app(ai_service=None, shopping=None, recommendation_config=None):
     register_recommendations(app, RecommendationService(shopping, settings), settings)
     register_deal_routes(app, shopping)
     register_product_search(app, shopping)
+    register_financial_insights(
+        app, insights_service if insights_service is not None else FinancialInsightsService(settings),
+    )
 
     @app.before_request
     def check_browser_origin():

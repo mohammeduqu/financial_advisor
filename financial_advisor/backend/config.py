@@ -14,6 +14,7 @@ def load_settings(overrides=None):
     result = {
         "OPENAI_API_KEY": str(values.get("OPENAI_API_KEY") or "").strip(),
         "OPENAI_MODEL": str(values.get("OPENAI_MODEL") or "gpt-4.1-mini").strip(),
+        "OPENAI_INSIGHTS_MODEL": str(values.get("OPENAI_INSIGHTS_MODEL") or values.get("OPENAI_MODEL") or "gpt-4.1-mini").strip(),
         "OPENAI_IMAGE_DETAIL": str(values.get("OPENAI_IMAGE_DETAIL") or "high").strip().lower(),
         "SERPAPI_KEY": str(values.get("SERPAPI_KEY") or "").strip(),
         "SERPAPI_LANGUAGE": str(values.get("SERPAPI_LANGUAGE") or "en").lower(),
@@ -40,9 +41,10 @@ def load_settings(overrides=None):
         except (TypeError, ValueError, OverflowError):
             raise ValueError(f"Invalid setting {name}; expected {minimum} through {maximum}.") from None
         result[name] = value
-    if (not result["OPENAI_MODEL"] or len(result["OPENAI_MODEL"]) > 200
-            or any(character.isspace() or ord(character) < 32 for character in result["OPENAI_MODEL"])):
-        raise ValueError("OPENAI_MODEL must be a valid model ID without spaces.")
+    for name in ("OPENAI_MODEL", "OPENAI_INSIGHTS_MODEL"):
+        if (not result[name] or len(result[name]) > 200
+                or any(character.isspace() or ord(character) < 32 for character in result[name])):
+            raise ValueError(f"{name} must be a valid model ID without spaces.")
     if any(character.isspace() or ord(character) < 32 for character in result["OPENAI_API_KEY"]):
         raise ValueError("OPENAI_API_KEY must not contain spaces or line breaks.")
     if result["OPENAI_IMAGE_DETAIL"] not in {"low", "high", "auto"}:

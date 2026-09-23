@@ -653,6 +653,53 @@ const arabic = <String, String>{
       'حدد ميزانيات الفئات في التحليل لعرض التوزيع.',
   '{0} allocated across categories': '{0} موزعة على الفئات',
   'AI Financial Insights': 'رؤى مالية ذكية',
+  'Generate AI insights': 'إنشاء رؤى ذكية',
+  'Try again': 'حاول مجدداً',
+  'Refresh insights': 'تحديث الرؤى',
+  'Generating insights…': 'جارٍ إنشاء الرؤى…',
+  'Analyzing your expenses…': 'جارٍ تحليل مصروفاتك…',
+  'Get practical ways to reduce spending based on your recorded expenses.':
+      'احصل على خطوات عملية لتقليل الإنفاق بناءً على مصروفاتك المسجلة.',
+  'Add expenses for this month to get personalized insights.':
+      'أضف مصروفات لهذا الشهر للحصول على رؤى تناسب إنفاقك.',
+  'Your expenses or language changed. Generate insights again.':
+      'تغيّرت مصروفاتك أو اللغة. أنشئ الرؤى من جديد.',
+  'Based on {0} recorded expenses': 'بناءً على {0} مصروفات مسجلة',
+  'Generated: {0}': 'تم الإنشاء: {0}',
+  'Try this': 'خطوة مقترحة',
+  'An expense summary is sent to OpenAI when you generate insights.':
+      'يُرسل ملخص المصروفات إلى OpenAI عند إنشاء الرؤى.',
+  'Could not generate insights. Please try again.':
+      'تعذّر إنشاء الرؤى. يرجى المحاولة مجدداً.',
+  'Could not prepare your expenses for analysis.':
+      'تعذّر تجهيز مصروفاتك للتحليل.',
+  'Add an expense for this month before requesting insights.':
+      'أضف مصروفاً لهذا الشهر قبل طلب الرؤى.',
+  'There are too many expenses to analyze in one request. Choose another month.':
+      'عدد المصروفات أكبر من الحد المسموح بتحليله في طلب واحد. اختر شهراً آخر.',
+  'Some expense details could not be analyzed. Check your expenses and try again.':
+      'تعذّر تحليل بعض تفاصيل المصروفات. راجعها وحاول مجدداً.',
+  'AI returned an incomplete insight. Please try again.':
+      'أعاد الذكاء الاصطناعي رؤى غير مكتملة. يرجى المحاولة مجدداً.',
+  'AI insights have not been set up yet. Please contact support.':
+      'لم يتم إعداد الرؤى الذكية بعد. يرجى التواصل مع الدعم.',
+  'AI insights are not configured correctly. Please contact support.':
+      'إعدادات الرؤى الذكية غير صحيحة. يرجى التواصل مع الدعم.',
+  'AI insights have reached their usage limit. Please try again later.':
+      'بلغت الرؤى الذكية حد الاستخدام المتاح. يرجى المحاولة لاحقاً.',
+  'AI insights are busy. Please try again shortly.':
+      'الرؤى الذكية مشغولة حالياً. يرجى المحاولة بعد قليل.',
+  'AI insights took too long. Please try again later.':
+      'استغرق إنشاء الرؤى وقتاً طويلاً. يرجى المحاولة لاحقاً.',
+  'Could not connect to the insights service. Check your connection and try again.':
+      'تعذّر الاتصال بخدمة الرؤى. تحقق من اتصالك وحاول مجدداً.',
+  'The insights service returned an unexpected response. Please try again later.':
+      'أعادت خدمة الرؤى استجابة غير متوقعة. يرجى المحاولة لاحقاً.',
+  'These expenses could not be analyzed. Please try again later.':
+      'تعذّر تحليل هذه المصروفات. يرجى المحاولة لاحقاً.',
+  'The insights request was cancelled.': 'تم إلغاء طلب الرؤى.',
+  'AI insights are temporarily unavailable. Please try again later.':
+      'الرؤى الذكية غير متاحة مؤقتاً. يرجى المحاولة لاحقاً.',
   'A little perspective. A better plan.': 'رؤية أوسع. خطة أفضل.',
   'Record expenses to reveal your spending patterns.':
       'سجل المصروفات للتعرف على نمط إنفاقك.',

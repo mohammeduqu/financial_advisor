@@ -5,6 +5,7 @@ import '../core/finance_store.dart';
 import '../widgets/design.dart';
 import '../widgets/tadbeer_logo.dart';
 import '../widgets/finance_charts.dart';
+import '../widgets/financial_insights_panel.dart';
 import 'transactions.dart';
 
 class HomePage extends StatelessWidget {
@@ -38,7 +39,6 @@ class HomePage extends StatelessWidget {
                 .categorySpent(month, b)
                 .compareTo(store.categorySpent(month, a)),
           );
-    final comparison = store.spendingComparison(month);
     final budget = store.budgetFor(month);
     final previous = DateTime(month.year, month.month - 1);
     final previousNet = store.incomeFor(previous) - store.expensesFor(previous);
@@ -405,55 +405,7 @@ class HomePage extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         BudgetDistribution(store: store, month: month),
-        SectionHeading(
-          'AI Financial Insights',
-          action: const Icon(
-            Icons.auto_awesome_outlined,
-            color: Color(0xFFCDBB93),
-            size: 20,
-          ),
-        ),
-        Surface(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AppText(
-                'A little perspective. A better plan.',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              AppText(
-                top.isEmpty
-                    ? 'Record expenses to reveal your spending patterns.'
-                    : '${top.first} represents ${(store.categorySpent(month, top.first) / spent * 100).round()}% of your expenses. Reducing it by 10% would free up ${store.currency} ${money((store.categorySpent(month, top.first) * .1).round())}.',
-                style: const TextStyle(fontSize: 12, color: muted, height: 1.7),
-              ),
-              const Divider(),
-              AppText(
-                comparison.previous > 0
-                    ? 'Spending is ${((comparison.current - comparison.previous) / comparison.previous * 100).abs().toStringAsFixed(1)}% ${comparison.current >= comparison.previous ? 'higher' : 'lower'} than the comparable period last month.'
-                    : 'Add prior-month entries to unlock a spending comparison.',
-                style: const TextStyle(fontSize: 12, color: muted, height: 1.6),
-              ),
-              if (budget > 0 && spent >= budget * .8) ...[
-                const SizedBox(height: 12),
-                AppText(
-                  alert,
-                  style: const TextStyle(
-                    color: Color(0xFFE0BD81),
-                    fontSize: 12,
-                    height: 1.6,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 14),
-              const AppText(
-                'RULE-BASED INSIGHTS',
-                style: TextStyle(fontSize: 9, letterSpacing: 1, color: blue),
-              ),
-            ],
-          ),
-        ),
+        FinancialInsightsPanel(store: store, month: month),
         SectionHeading(
           'Recent transactions',
           action: TextButton(
