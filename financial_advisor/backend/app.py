@@ -15,6 +15,7 @@ from services.serpapi_service import SerpApiService
 from services.recommendation_service import RecommendationService
 from routes.recommendation_routes import register_recommendations
 from routes.deal_routes import register_deal_routes
+from routes.product_search_routes import register_product_search
 
 
 class InMemoryUploadRequest(Request):
@@ -47,6 +48,7 @@ def create_app(ai_service=None, shopping=None, recommendation_config=None):
     )
     register_recommendations(app, RecommendationService(shopping, settings), settings)
     register_deal_routes(app, shopping)
+    register_product_search(app, shopping)
 
     @app.before_request
     def check_browser_origin():

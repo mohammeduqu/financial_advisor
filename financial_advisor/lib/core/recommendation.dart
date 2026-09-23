@@ -24,6 +24,46 @@ String? shoppingOfferCurrency(Map<String, dynamic> offer) {
   return code != null && RegExp(r'^[A-Z]{3}$').hasMatch(code) ? code : null;
 }
 
+/// Direct listings never inherit the currency of the legacy SAR-only API.
+String? directShoppingOfferCurrency(Map<String, dynamic> offer) =>
+    shoppingOfferCurrency({...offer, 'currency': offer['currency']});
+
+/// Sort a display copy without changing the provider response or saved history.
+/// Different currencies are not comparable without exchange rates, and unknown
+/// currencies keep their provider order after the known currency groups.
+List<Map<String, dynamic>> sortedDirectShoppingOffers(
+  List<Map<String, dynamic>> offers,
+) {
+  final groups = <String, List<(int, Map<String, dynamic>)>>{};
+  final unknownCurrency = <Map<String, dynamic>>[];
+  final unpriced = <Map<String, dynamic>>[];
+  for (var index = 0; index < offers.length; index++) {
+    final offer = offers[index];
+    final price = recommendationNumber(offer['extracted_price']);
+    if (price == null || price <= 0) {
+      unpriced.add(offer);
+      continue;
+    }
+    final currency = directShoppingOfferCurrency(offer);
+    if (currency == null) {
+      unknownCurrency.add(offer);
+      continue;
+    }
+    groups.putIfAbsent(currency, () => []).add((index, offer));
+  }
+  final ordered = <Map<String, dynamic>>[];
+  for (final group in groups.values) {
+    group.sort((a, b) {
+      final byPrice = (a.$2['extracted_price'] as num).compareTo(
+        b.$2['extracted_price'] as num,
+      );
+      return byPrice != 0 ? byPrice : a.$1.compareTo(b.$1);
+    });
+    ordered.addAll(group.map((entry) => entry.$2));
+  }
+  return [...ordered, ...unknownCurrency, ...unpriced];
+}
+
 /// New shopping aliases and old saved results share one display contract.
 Map<String, dynamic> normalizedShoppingOffer(Map<String, dynamic> offer) => {
   ...offer,
@@ -154,6 +194,11 @@ class RecommendationResult {
     return RecommendationResult._(Map<String, dynamic>.unmodifiable(json));
   }
   Map<String, dynamic> get summary => recommendationMap(data['summary']);
+  bool get isDirectSearch => data['direct_search'] == true;
+  List<Map<String, dynamic>> get shoppingResults =>
+      recommendationMaps(data['shopping_results']);
+  List<Map<String, dynamic>> get sortedShoppingResults =>
+      sortedDirectShoppingOffers(shoppingResults);
   List<Map<String, dynamic>> get recommendations =>
       recommendationMaps(data['recommendations']);
   String get mode =>
@@ -218,7 +263,7 @@ class RecommendationHistory {
       }
       return recommendationMaps(
         json['entries'],
-      ).take(maxEntries).map(RecommendationSnapshot.fromJson).toList();
+      ).map(RecommendationSnapshot.fromJson).toList().take(maxEntries).toList();
     } catch (_) {
       error =
           'Comparison history could not be read. Clear it to save new comparisons. Your expenses are unaffected.';
@@ -258,6 +303,38 @@ class RecommendationHistory {
   Future<void> clear() async {
     if (!await prefs.remove(preferenceKey)) {
       throw StateError('History could not be cleared');
+    }
+  }
+
+  Future<void> delete(String id) async {
+    read();
+    if (error != null) throw StateError(error!);
+    final raw = prefs.getString(preferenceKey);
+    if (raw == null) return;
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    final entries = recommendationMaps(json['entries']);
+    final remaining = entries.where((entry) => entry['id'] != id).toList();
+    if (remaining.length == entries.length) return;
+
+    try {
+      if (!await prefs.setString(
+        preferenceKey,
+        jsonEncode({...json, 'entries': remaining}),
+      )) {
+        throw StateError('Comparison could not be deleted');
+      }
+    } catch (_) {
+      // SharedPreferences updates its cache before the platform write finishes.
+      // Restore durable values so a failed delete stays available for retry.
+      try {
+        await prefs.reload();
+      } catch (_) {
+        // If storage cannot be read either, restore the previous cached value.
+        try {
+          await prefs.setString(preferenceKey, raw);
+        } catch (_) {}
+      }
+      throw StateError('Comparison could not be deleted');
     }
   }
 }

@@ -111,12 +111,15 @@ void main() {
             find.byKey(const Key('shopping-text-input')),
             'Milk',
           );
+          final submit = find.byKey(
+            Key(shoppingList ? 'review-shopping-text' : 'search-product'),
+          );
           await tester.scrollUntilVisible(
-            find.byKey(const Key('review-shopping-text')).hitTestable(),
+            submit.hitTestable(),
             200,
             scrollable: find.byType(Scrollable).first,
           );
-          await tester.tap(find.byKey(const Key('review-shopping-text')));
+          await tester.tap(submit);
           await tester.pumpAndSettle();
           expect(calls, 1);
           expect(

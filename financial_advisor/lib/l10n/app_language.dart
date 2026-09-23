@@ -81,6 +81,39 @@ class AppText extends StatelessWidget {
 }
 
 const arabic = <String, String>{
+  'Search country': 'بلد البحث',
+  'Results language': 'لغة النتائج',
+  'Maximum price (optional)': 'الحد الأقصى للسعر (اختياري)',
+  'Saudi Arabia': 'المملكة العربية السعودية',
+  'United Arab Emirates': 'الإمارات العربية المتحدة',
+  'United States': 'الولايات المتحدة',
+  'United Kingdom': 'المملكة المتحدة',
+  'Egypt': 'مصر',
+  'Kuwait': 'الكويت',
+  'Qatar': 'قطر',
+  'Bahrain': 'البحرين',
+  'Oman': 'عُمان',
+  'Search stores': 'البحث في المتاجر',
+  'Searching stores…': 'جارٍ البحث في المتاجر…',
+  'Lowest prices first within each currency. Prices may exclude shipping.':
+      'تظهر الأسعار الأقل أولاً ضمن كل عملة. قد لا تشمل الأسعار تكلفة الشحن.',
+  'Price: low to high': 'السعر: من الأقل إلى الأعلى',
+  'Prices sorted within each currency. Unspecified currencies appear last.':
+      'الأسعار مرتبة ضمن كل عملة. تظهر الأسعار ذات العملات غير المحددة أخيراً.',
+  'Product search is unavailable in this country. Please choose another country.':
+      'البحث عن المنتجات غير متاح في هذا البلد. يرجى اختيار بلد آخر.',
+  'Check the search country, language and maximum price.':
+      'تحقق من بلد البحث واللغة والحد الأقصى للسعر.',
+  'Enter one product name of up to 400 characters.':
+      'أدخل اسم منتج واحد بما لا يتجاوز 400 حرف.',
+  'Could not save search settings. Try again.':
+      'تعذر حفظ إعدادات البحث. حاول مجدداً.',
+  'Open shop': 'فتح المتجر',
+  'Price unavailable': 'السعر غير متوفر',
+  'Back to search': 'العودة إلى البحث',
+  'Find Better Price': 'اعثر على سعر أفضل',
+  'Product search': 'البحث عن منتج',
+  '{0} results': '{0} نتيجة',
   'Tadbeer': 'تدبير',
   'Tadbeer • Money Management': 'تدبير • إدارة الأموال',
   'Up to two matching listings. Prices in different currencies are not ranked against each other.':
@@ -152,11 +185,10 @@ const arabic = <String, String>{
   'What are you looking for?': 'ما الذي تبحث عنه؟',
   'Paste a message, a checklist or a list of things you want to buy. Include quantities, brands and sizes when you know them.':
       'ألصق رسالة أو قائمة بالأشياء التي تريد شراءها. أضف الكميات والعلامات التجارية والأحجام إن كنت تعرفها.',
-  'Type the product name. Add the brand, model, capacity or size for more useful results.':
-      'اكتب اسم المنتج. أضف العلامة التجارية أو الطراز أو السعة أو الحجم للحصول على نتائج أنسب.',
+  'Enter a product name to find prices from online stores.':
+      'أدخل اسم المنتج للعثور على أسعاره في المتاجر الإلكترونية.',
+  'Enter product name': 'أدخل اسم المنتج',
   'Paste your list': 'ألصق قائمتك',
-  '2 bottles of Almarai milk 2L\nCoffee beans 250g\nUSB-C charger 30W':
-      'عبوتان من حليب المراعي ٢ لتر\nحبوب قهوة ٢٥٠ غرام\nشاحن USB-C بقدرة ٣٠ واط',
   'We organize the list first. You can edit every item before any price search starts.':
       'ننظّم القائمة أولاً. يمكنك تعديل كل عنصر قبل بدء البحث عن الأسعار.',
   'Review the name and optional current price before searching stores.':
@@ -272,6 +304,12 @@ const arabic = <String, String>{
   'Product comparison': 'مقارنة منتج',
   'Potential saving: {0}': 'التوفير المحتمل: {0}',
   'Clear comparison history': 'مسح سجل المقارنات',
+  'Delete comparison': 'حذف المقارنة',
+  'Delete comparison?': 'حذف المقارنة؟',
+  'This removes this saved result. Your expenses stay saved.':
+      'يحذف هذا النتيجة المحفوظة فقط. تبقى مصروفاتك محفوظة.',
+  'Comparison deleted.': 'تم حذف المقارنة.',
+  'Could not delete comparison. Try again.': 'تعذّر حذف المقارنة. حاول مجدداً.',
   'Clear comparison history?': 'مسح سجل المقارنات؟',
   'This removes comparison history. Your expenses stay saved.':
       'يحذف هذا سجل المقارنات. تبقى مصروفاتك محفوظة.',

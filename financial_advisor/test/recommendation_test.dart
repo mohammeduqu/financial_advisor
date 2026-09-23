@@ -55,6 +55,61 @@ Map<String, dynamic> resultJson() => {
   ],
   'warnings': [],
 };
+
+class _HistoryPreferences implements SharedPreferences {
+  final Map<String, String> cached;
+  final Map<String, String> durable;
+  var writes = 0;
+  var reloads = 0;
+  var failWrites = false;
+  var throwOnWrite = false;
+  var failReload = false;
+
+  _HistoryPreferences(Map<String, String> initial)
+    : cached = Map.of(initial),
+      durable = Map.of(initial);
+
+  @override
+  String? getString(String key) => cached[key];
+
+  @override
+  Future<bool> setString(String key, String value) async {
+    writes++;
+    // Match the real plugin: its cache changes before persistence is attempted.
+    cached[key] = value;
+    if (throwOnWrite) throw StateError('Storage unavailable');
+    if (failWrites) return false;
+    durable[key] = value;
+    return true;
+  }
+
+  @override
+  Future<void> reload() async {
+    reloads++;
+    if (failReload) throw StateError('Storage unavailable');
+    cached
+      ..clear()
+      ..addAll(durable);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+String _savedComparisons() => jsonEncode({
+  'version': 1,
+  'entries': [
+    for (final id in ['newest', 'middle', 'oldest'])
+      {
+        'id': id,
+        'saved_at': '2026-09-23T12:00:00',
+        'expense_id': 'expense-$id',
+        // Identical search queries must still be independently deletable.
+        'result': {...resultJson(), 'query': 'Tea'},
+      },
+  ],
+});
+
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('en');
@@ -270,6 +325,133 @@ void main() {
       expect(prefs.getString('numo_v1'), ledger);
     },
   );
+
+  test(
+    'deleting one comparison preserves other snapshots and expenses',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        RecommendationHistory.preferenceKey: _savedComparisons(),
+        'numo_v1': 'unchanged expense ledger',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final history = RecommendationHistory(prefs);
+      final before = history.read().map((entry) => entry.toJson()).toList();
+
+      await history.delete('middle');
+      await prefs.reload();
+      final remaining = RecommendationHistory(prefs).read();
+      expect(remaining.map((entry) => entry.id), ['newest', 'oldest']);
+      expect(remaining.map((entry) => entry.toJson()), [before[0], before[2]]);
+      expect(prefs.getString('numo_v1'), 'unchanged expense ledger');
+
+      await history.delete('newest');
+      await history.delete('oldest');
+      await prefs.reload();
+      expect(RecommendationHistory(prefs).read(), isEmpty);
+      expect(prefs.getString('numo_v1'), 'unchanged expense ledger');
+    },
+  );
+
+  test(
+    'deleting an absent ID leaves history unchanged without writing',
+    () async {
+      for (final raw in [null, _savedComparisons()]) {
+        final prefs = _HistoryPreferences({
+          if (raw != null) RecommendationHistory.preferenceKey: raw,
+        });
+        await RecommendationHistory(prefs).delete('missing');
+        expect(prefs.writes, 0);
+        expect(prefs.getString(RecommendationHistory.preferenceKey), raw);
+      }
+    },
+  );
+
+  test('deleting rejects unreadable history without replacing it', () async {
+    final malformedTail =
+        jsonDecode(_savedComparisons()) as Map<String, dynamic>;
+    final entries = malformedTail['entries'] as List;
+    while (entries.length < RecommendationHistory.maxEntries) {
+      entries.add(entries.first);
+    }
+    entries.add({'id': 'unreadable'});
+    for (final raw in [
+      '{broken',
+      '{"version":2,"entries":[]}',
+      jsonEncode(malformedTail),
+    ]) {
+      final prefs = _HistoryPreferences({
+        RecommendationHistory.preferenceKey: raw,
+      });
+      final history = RecommendationHistory(prefs);
+      await expectLater(history.delete('middle'), throwsStateError);
+      expect(history.error, isNotNull);
+      expect(prefs.writes, 0);
+      expect(prefs.getString(RecommendationHistory.preferenceKey), raw);
+    }
+  });
+
+  test(
+    'deleting preserves snapshots beyond the visible history limit',
+    () async {
+      final json = jsonDecode(_savedComparisons()) as Map<String, dynamic>;
+      final entries = json['entries'] as List;
+      for (var i = 0; i < RecommendationHistory.maxEntries; i++) {
+        entries.add({
+          ...entries.first as Map<String, dynamic>,
+          'id': 'older-$i',
+        });
+      }
+      final prefs = _HistoryPreferences({
+        RecommendationHistory.preferenceKey: jsonEncode(json),
+      });
+      await RecommendationHistory(prefs).delete('middle');
+      final saved = jsonDecode(
+        prefs.getString(RecommendationHistory.preferenceKey)!,
+      );
+      expect(
+        saved['entries'],
+        entries.where((entry) => entry['id'] != 'middle').toList(),
+      );
+    },
+  );
+
+  for (final throws in [false, true]) {
+    for (final reloadFails in [false, true]) {
+      test(
+        'failed deletion retains cached history for retry (throws: $throws, reload fails: $reloadFails)',
+        () async {
+          final raw = _savedComparisons();
+          final prefs =
+              _HistoryPreferences({
+                  RecommendationHistory.preferenceKey: raw,
+                  'numo_v1': 'unchanged expense ledger',
+                })
+                ..failWrites = true
+                ..throwOnWrite = throws
+                ..failReload = reloadFails;
+          final history = RecommendationHistory(prefs);
+          await expectLater(history.delete('middle'), throwsStateError);
+          expect(prefs.reloads, 1);
+          expect(prefs.getString(RecommendationHistory.preferenceKey), raw);
+          expect(prefs.durable[RecommendationHistory.preferenceKey], raw);
+          expect(history.read().map((entry) => entry.id), [
+            'newest',
+            'middle',
+            'oldest',
+          ]);
+          expect(prefs.getString('numo_v1'), 'unchanged expense ledger');
+
+          prefs
+            ..failWrites = false
+            ..throwOnWrite = false
+            ..failReload = false;
+          await history.delete('middle');
+          await prefs.reload();
+          expect(history.read().map((entry) => entry.id), ['newest', 'oldest']);
+        },
+      );
+    }
+  }
 
   testWidgets(
     'review waits for confirmation, sends edited price and keeps expenses unchanged',

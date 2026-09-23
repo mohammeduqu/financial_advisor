@@ -70,6 +70,13 @@ class RecommendationResultsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (result.isDirectSearch) {
+      return _DirectSearchResults(
+        result: result,
+        historical: historical,
+        notice: notice,
+      );
+    }
     final summary = result.summary;
     final shopping =
         result.mode == 'shopping-list' ||
@@ -268,6 +275,241 @@ class RecommendationResultsPage extends StatelessWidget {
   }
 }
 
+class _DirectSearchResults extends StatelessWidget {
+  final RecommendationResult result;
+  final bool historical;
+  final String? notice;
+  const _DirectSearchResults({
+    required this.result,
+    required this.historical,
+    this.notice,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final offers = result.sortedShoppingResults;
+    final currencies = offers.map(directShoppingOfferCurrency).toSet();
+    final query = recommendationText(result.data['query']);
+    return Scaffold(
+      appBar: AppBar(title: const AppText('Shopping results')),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const PageHeading('Find Better Price', 'Shopping results'),
+          if (query != null) ...[
+            Text(query, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+          ],
+          AppText(
+            '${offers.length} results',
+            key: const ValueKey('direct-search-result-count'),
+            style: const TextStyle(color: muted, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          if (offers.isNotEmpty) ...[
+            AppText(
+              currencies.length > 1 || currencies.contains(null)
+                  ? 'Prices sorted within each currency. Unspecified currencies appear last.'
+                  : 'Price: low to high',
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+            const SizedBox(height: 6),
+          ],
+          Text(
+            recommendationTime(context, result.searchedAt),
+            style: const TextStyle(color: muted, fontSize: 12),
+          ),
+          if (historical) ...[
+            const SizedBox(height: 16),
+            const Surface(
+              child: AppText(
+                'Saved comparison. These are historical prices, not a live quote.',
+              ),
+            ),
+          ],
+          if (result.data['cached'] == true) ...[
+            const SizedBox(height: 12),
+            const AppText(
+              'Cached search results',
+              style: TextStyle(color: muted, fontSize: 12),
+            ),
+          ],
+          if (notice != null) ...[
+            const SizedBox(height: 16),
+            Surface(child: AppText(notice!)),
+          ],
+          const SizedBox(height: 24),
+          if (offers.isEmpty)
+            EmptyState(
+              icon: Icons.search_off,
+              title: 'No shopping options found',
+              body: 'Try a clearer product name with brand, model and size.',
+              action: OutlinedButton.icon(
+                key: const ValueKey('direct-search-retry'),
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.search),
+                label: const AppText('Back to search'),
+              ),
+            ),
+          for (var index = 0; index < offers.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _DirectOfferCard(offer: offers[index], index: index),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DirectOfferCard extends StatelessWidget {
+  final Map<String, dynamic> offer;
+  final int index;
+  const _DirectOfferCard({required this.offer, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = safeDealUri(offer['product_link']);
+    final icon = sourceIconUri(offer['source_icon']);
+    final thumbnail = sourceIconUri(offer['serpapi_thumbnail']);
+    final title =
+        recommendationText(offer['title']) ?? tr(context, 'Unknown product');
+    final source =
+        recommendationText(offer['source']) ?? tr(context, 'Unknown store');
+    final currency = directShoppingOfferCurrency(offer);
+    final amount = recommendationNumber(offer['extracted_price']);
+    final price =
+        recommendationText(offer['price_label']) ??
+        (amount == null
+            ? tr(context, 'Price unavailable')
+            : offerAmountText(amount, currency));
+    final fallbackIcon = Icon(
+      Icons.storefront_outlined,
+      key: ValueKey('direct-source-icon-fallback-$index'),
+      size: 22,
+      color: blue,
+    );
+    final fallbackThumbnail = Icon(
+      Icons.image_outlined,
+      key: ValueKey('direct-product-image-fallback-$index'),
+      size: 48,
+      color: muted,
+    );
+    void openLink() => openRecommendationOffer(context, offer);
+
+    return Surface(
+      padding: EdgeInsets.zero,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey('direct-shopping-offer-$index'),
+          onTap: url == null ? null : openLink,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 160,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF15212C),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child:
+                      thumbnail == null
+                          ? fallbackThumbnail
+                          : Image.network(
+                            thumbnail.toString(),
+                            key: ValueKey('direct-product-image-$index'),
+                            webHtmlElementStrategy:
+                                WebHtmlElementStrategy.prefer,
+                            width: double.infinity,
+                            height: 136,
+                            fit: BoxFit.contain,
+                            excludeFromSemantics: true,
+                            errorBuilder: (_, __, ___) => fallbackThumbnail,
+                          ),
+                ),
+                const SizedBox(height: 16),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF21332F),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child:
+                          icon == null
+                              ? fallbackIcon
+                              : ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  icon.toString(),
+                                  key: ValueKey('direct-source-icon-$index'),
+                                  webHtmlElementStrategy:
+                                      WebHtmlElementStrategy.prefer,
+                                  width: 28,
+                                  height: 28,
+                                  fit: BoxFit.contain,
+                                  excludeFromSemantics: true,
+                                  errorBuilder: (_, __, ___) => fallbackIcon,
+                                ),
+                              ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        source,
+                        style: const TextStyle(color: muted, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const AppText(
+                  'Listed price',
+                  style: TextStyle(color: muted, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  price,
+                  textDirection: TextDirection.ltr,
+                  style: TextStyle(
+                    fontSize: amount == null ? 18 : 27,
+                    fontWeight: FontWeight.w700,
+                    color: blue,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: ValueKey('direct-open-shop-$index'),
+                    onPressed: url == null ? null : openLink,
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const AppText('Open shop'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RecommendationCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final bool shopping;
@@ -366,13 +608,13 @@ class _RecommendationCard extends StatelessWidget {
   }
 }
 
-/// Static provider-hosted icons do not use the paid search API.
+/// Static provider-hosted images do not use the paid search API.
 Uri? sourceIconUri(dynamic value) {
   final publicUri = safeDealUri(value);
   if (publicUri != null) return publicUri;
   if (value is! String) return null;
   try {
-    final uri = Uri.tryParse(value);
+    final uri = Uri.tryParse(value.trim());
     if (uri == null ||
         uri.scheme != 'https' ||
         uri.host != 'serpapi.com' ||
@@ -381,10 +623,13 @@ Uri? sourceIconUri(dynamic value) {
         uri.hasQuery ||
         uri.hasFragment ||
         uri.pathSegments.any((segment) => segment == '..') ||
-        !RegExp(
+        ![
           r'^/searches/[A-Za-z0-9_-]+/images/[A-Za-z0-9_./-]+\.(png|jpg|jpeg|webp|gif|ico)$',
-          caseSensitive: false,
-        ).hasMatch(uri.path)) {
+          r'^/images/url/[A-Za-z0-9_-]+$',
+          r'^/images/i/[A-Za-z0-9_-]+\.(png|jpg|jpeg|webp|gif|ico)$',
+        ].any(
+          (pattern) => RegExp(pattern, caseSensitive: false).hasMatch(uri.path),
+        )) {
       return null;
     }
     return uri;
@@ -462,6 +707,8 @@ class _OfferCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(7),
                               child: Image.network(
                                 icon.toString(),
+                                webHtmlElementStrategy:
+                                    WebHtmlElementStrategy.prefer,
                                 width: 26,
                                 height: 26,
                                 fit: BoxFit.contain,

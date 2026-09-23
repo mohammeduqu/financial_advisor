@@ -204,7 +204,7 @@ void main() {
   });
 
   testWidgets(
-    'product-name entry opens editable review without performing a price search',
+    'product-name entry searches Flask directly with Saudi defaults and no review',
     (tester) async {
       final store = FinanceStore(await SharedPreferences.getInstance());
       await store.prefs.setString(
@@ -224,13 +224,31 @@ void main() {
                       () => MockClient((request) async {
                         calls++;
                         expect(request.url.origin, flaskApiUrl());
+                        expect(request.url.path, '/api/recommendations/search');
                         expect(
                           request.url.host,
                           isNot('stale-api.example.com'),
                         );
-                        expect(jsonDecode(request.body), {'text': 'Milk'});
+                        expect(jsonDecode(request.body), {
+                          'q': 'Milk',
+                          'gl': 'sa',
+                          'location': 'Saudi Arabia',
+                          'google_domain': 'google.com.sa',
+                          'hl': 'ar',
+                          'max_price': null,
+                        });
                         return http.Response(
-                          jsonEncode(reviewJson('product')),
+                          jsonEncode({
+                            'success': true,
+                            'stage': 'results',
+                            'mode': 'product',
+                            'direct_search': true,
+                            'query': 'Milk',
+                            'shopping_results': <Map<String, dynamic>>[],
+                            'summary': {'total_results': 0},
+                            'recommendations': <Map<String, dynamic>>[],
+                            'warnings': <String>[],
+                          }),
                           200,
                         );
                       }),
@@ -238,20 +256,15 @@ void main() {
           ),
         ),
       );
+      expect(calls, 0);
       await tester.enterText(
         find.byKey(const Key('shopping-text-input')),
         'Milk',
       );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('review-shopping-text')).hitTestable(),
-        300,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(
-        find.byKey(const Key('review-shopping-text')).hitTestable(),
-      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
-      expect(find.byType(RecommendationReviewPage), findsOneWidget);
+      expect(find.byType(RecommendationResultsPage), findsOneWidget);
+      expect(find.byType(RecommendationReviewPage), findsNothing);
       expect(calls, 1);
       expect(store.entries, isEmpty);
       expect(tester.takeException(), isNull);
@@ -387,9 +400,10 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Arabic hub offers text, list and image import while preserving expense scanner',
-    (tester) async {
+  for (final language in ['en', 'ar']) {
+    testWidgets('$language price hub only opens product-name search', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -398,24 +412,60 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: appTheme(),
-          locale: const Locale('ar'),
+          locale: Locale(language),
           supportedLocales: const [Locale('en'), Locale('ar')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           home: SmartPricesPage(store: store),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('search-product-text')), findsOneWidget);
-      expect(find.text('مسح منتج'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('import-shopping-image')).hitTestable(),
-        250,
-        scrollable: find.byType(Scrollable).first,
+      expect(
+        find.text(
+          language == 'ar'
+              ? 'أدخل اسم المنتج للعثور على أسعاره في المتاجر الإلكترونية.'
+              : 'Enter a product name to find prices from online stores.',
+        ),
+        findsOneWidget,
       );
-      expect(find.text('مسح فاتورة وإضافة مصروف'), findsOneWidget);
+      expect(find.byKey(const Key('search-product-text')), findsOneWidget);
+      expect(find.byKey(const Key('paste-shopping-list')), findsNothing);
+      expect(find.byKey(const Key('import-shopping-image')), findsNothing);
+      expect(find.text('Paste a shopping list'), findsNothing);
+      expect(find.text('Import list or invoice image'), findsNothing);
+      expect(find.text('Scan Invoice and add expense'), findsNothing);
+      expect(find.text('مسح فاتورة وإضافة مصروف'), findsNothing);
+      expect(find.byIcon(Icons.document_scanner_outlined), findsNothing);
+      expect(find.byIcon(Icons.receipt_long_outlined), findsNothing);
+
+      await tester.tap(find.byKey(const Key('search-product-text')));
+      await tester.pumpAndSettle();
+      final page = tester.widget<RecommendationTextPage>(
+        find.byType(RecommendationTextPage),
+      );
+      expect(page.shoppingList, false);
+      final input = tester.widget<TextField>(
+        find.byKey(const Key('shopping-text-input')),
+      );
+      expect(input.minLines, 1);
+      expect(input.maxLines, 1);
+      expect(input.keyboardType, TextInputType.text);
+      expect(input.textInputAction, TextInputAction.done);
+      expect(
+        input.decoration?.labelText,
+        language == 'ar' ? 'اسم المنتج' : 'Product name',
+      );
+      expect(
+        input.decoration?.hintText,
+        language == 'ar' ? 'أدخل اسم المنتج' : 'Enter product name',
+      );
+      expect(find.byKey(const Key('shopping-location')), findsNothing);
+      expect(find.byKey(const Key('paste-shopping-list')), findsNothing);
+      expect(find.byKey(const Key('import-shopping-image')), findsNothing);
+      expect(find.byIcon(Icons.document_scanner_outlined), findsNothing);
+      expect(find.byIcon(Icons.camera_alt_outlined), findsNothing);
       expect(tester.takeException(), isNull);
-    },
-  );
+    });
+  }
 
   testWidgets(
     'priced broad product still shows shopping estimate instead of unavailable savings',

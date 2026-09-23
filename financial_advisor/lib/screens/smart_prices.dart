@@ -4,7 +4,6 @@ import '../core/recommendation.dart';
 import '../l10n/app_language.dart';
 import '../widgets/design.dart';
 import 'recommendation_results.dart';
-import 'scan.dart';
 import 'recommendation_text.dart';
 
 class SmartPricesPage extends StatefulWidget {
@@ -15,44 +14,38 @@ class SmartPricesPage extends StatefulWidget {
 }
 
 class _SmartPricesPageState extends State<SmartPricesPage> {
-  Future<void> textEntry(bool shoppingList) async {
+  bool changingHistory = false;
+
+  Future<void> deleteComparison(RecommendationSnapshot snapshot) async {
+    if (changingHistory) return;
+    setState(() => changingHistory = true);
+    try {
+      if (!await confirm(
+            context,
+            'Delete comparison?',
+            'This removes this saved result. Your expenses stay saved.',
+            action: 'Delete',
+          ) ||
+          !mounted) {
+        return;
+      }
+      await RecommendationHistory(widget.store.prefs).delete(snapshot.id);
+      if (mounted) toast(context, 'Comparison deleted.');
+    } catch (_) {
+      if (mounted) toast(context, 'Could not delete comparison. Try again.');
+    } finally {
+      if (mounted) setState(() => changingHistory = false);
+    }
+  }
+
+  Future<void> textEntry() async {
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => RecommendationTextPage(
-              store: widget.store,
-              shoppingList: shoppingList,
-            ),
+        builder: (_) => RecommendationTextPage(store: widget.store),
       ),
     );
     if (mounted) setState(() {});
-  }
-
-  Future<void> scan(bool shoppingList) async {
-    final entry = await Navigator.push<Entry>(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => Scaffold(
-              appBar: AppBar(
-                title: AppText(
-                  shoppingList ? 'Import list or invoice' : 'Scan Invoice',
-                ),
-              ),
-              body: ScanPage(
-                store: widget.store,
-                shoppingListMode: shoppingList,
-              ),
-            ),
-      ),
-    );
-    if (!mounted) return;
-    if (entry != null) {
-      Navigator.pop(context, entry);
-    } else {
-      setState(() {});
-    }
   }
 
   @override
@@ -78,47 +71,20 @@ class _SmartPricesPageState extends State<SmartPricesPage> {
                 ),
                 const SizedBox(height: 12),
                 const AppText(
-                  'Search a product by name, paste your shopping list, or import a list image. Review the items, then find online stores.',
+                  'Enter a product name to find prices from online stores.',
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     key: const Key('search-product-text'),
-                    onPressed: () => textEntry(false),
+                    onPressed: textEntry,
                     icon: const Icon(Icons.search_rounded),
                     label: const AppText('Search by product name'),
                   ),
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    key: const Key('paste-shopping-list'),
-                    onPressed: () => textEntry(true),
-                    icon: const Icon(Icons.playlist_add_rounded),
-                    label: const AppText('Paste a shopping list'),
-                  ),
-                ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            key: const Key('import-shopping-image'),
-            onPressed: () => scan(true),
-            icon: const Icon(Icons.document_scanner_outlined),
-            label: const AppText('Import list or invoice image'),
-          ),
-          const SizedBox(height: 10),
-          const AppText(
-            'A photo, screenshot or invoice can become a shopping list. Tap a product card to open its link.',
-            style: TextStyle(color: muted),
-          ),
-          TextButton.icon(
-            onPressed: () => scan(false),
-            icon: const Icon(Icons.receipt_long_outlined),
-            label: const AppText('Scan Invoice and add expense'),
           ),
           const SectionHeading('Recent comparisons'),
           if (repository.error != null) ...[
@@ -138,6 +104,7 @@ class _SmartPricesPageState extends State<SmartPricesPage> {
               child: Surface(
                 padding: EdgeInsets.zero,
                 child: ListTile(
+                  key: ValueKey('comparison-${snapshot.id}'),
                   leading: Icon(
                     snapshot.result.mode == 'invoice'
                         ? Icons.receipt_long_outlined
@@ -145,7 +112,10 @@ class _SmartPricesPageState extends State<SmartPricesPage> {
                     color: blue,
                   ),
                   title: AppText(
-                    snapshot.result.mode == 'invoice'
+                    snapshot.result.isDirectSearch
+                        ? recommendationText(snapshot.result.data['query']) ??
+                            'Product search'
+                        : snapshot.result.mode == 'invoice'
                         ? 'Invoice comparison'
                         : snapshot.result.mode == 'shopping-list'
                         ? 'Shopping list results'
@@ -155,32 +125,51 @@ class _SmartPricesPageState extends State<SmartPricesPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(recommendationTime(context, snapshot.savedAt)),
-                      AppText(
-                        snapshot.result.mode == 'shopping-list' ||
-                                (snapshot.result.mode == 'product' &&
-                                    (recommendationNumber(
-                                              snapshot
-                                                  .result
-                                                  .summary['compared_items'],
-                                            ) ??
-                                            0) ==
-                                        0)
-                            ? snapshot.result.summary['shopping_total'] ==
-                                        null &&
-                                    (recommendationNumber(
-                                              snapshot
-                                                  .result
-                                                  .summary['found_items'],
-                                            ) ??
-                                            0) >
-                                        0
-                                ? 'See prices on product cards'
-                                : 'Estimated shopping total: ${priceText(snapshot.result.summary['shopping_total'])}'
-                            : 'Potential saving: ${priceText(snapshot.result.summary['potential_savings'])}',
-                      ),
+                      if (snapshot.result.isDirectSearch)
+                        AppText(
+                          '${snapshot.result.shoppingResults.length} results',
+                        )
+                      else
+                        AppText(
+                          snapshot.result.mode == 'shopping-list' ||
+                                  (snapshot.result.mode == 'product' &&
+                                      (recommendationNumber(
+                                                snapshot
+                                                    .result
+                                                    .summary['compared_items'],
+                                              ) ??
+                                              0) ==
+                                          0)
+                              ? snapshot.result.summary['shopping_total'] ==
+                                          null &&
+                                      (recommendationNumber(
+                                                snapshot
+                                                    .result
+                                                    .summary['found_items'],
+                                              ) ??
+                                              0) >
+                                          0
+                                  ? 'See prices on product cards'
+                                  : 'Estimated shopping total: ${priceText(snapshot.result.summary['shopping_total'])}'
+                              : 'Potential saving: ${priceText(snapshot.result.summary['potential_savings'])}',
+                        ),
                     ],
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: ValueKey('delete-comparison-${snapshot.id}'),
+                        tooltip: tr(context, 'Delete comparison'),
+                        onPressed:
+                            changingHistory
+                                ? null
+                                : () => deleteComparison(snapshot),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
                   onTap:
                       () => Navigator.push<void>(
                         context,
@@ -199,23 +188,34 @@ class _SmartPricesPageState extends State<SmartPricesPage> {
             TextButton.icon(
               icon: const Icon(Icons.delete_outline),
               label: const AppText('Clear comparison history'),
-              onPressed: () async {
-                if (!await confirm(
-                  context,
-                  'Clear comparison history?',
-                  'This removes comparison history. Your expenses stay saved.',
-                )) {
-                  return;
-                }
-                try {
-                  await RecommendationHistory(widget.store.prefs).clear();
-                  if (mounted) setState(() {});
-                } catch (_) {
-                  if (context.mounted) {
-                    toast(context, 'Could not clear comparison history.');
-                  }
-                }
-              },
+              onPressed:
+                  changingHistory
+                      ? null
+                      : () async {
+                        setState(() => changingHistory = true);
+                        try {
+                          if (!await confirm(
+                                context,
+                                'Clear comparison history?',
+                                'This removes comparison history. Your expenses stay saved.',
+                              ) ||
+                              !mounted) {
+                            return;
+                          }
+                          await RecommendationHistory(
+                            widget.store.prefs,
+                          ).clear();
+                        } catch (_) {
+                          if (context.mounted) {
+                            toast(
+                              context,
+                              'Could not clear comparison history.',
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => changingHistory = false);
+                        }
+                      },
             ),
         ],
       ),

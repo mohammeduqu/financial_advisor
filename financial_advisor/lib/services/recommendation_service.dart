@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../core/invoice.dart';
+import '../core/product_search_options.dart';
 import '../core/recommendation.dart';
 import 'invoice_service.dart';
 
@@ -10,6 +11,11 @@ class RecommendationApiException implements Exception {
   final String code;
   const RecommendationApiException(this.code);
   String get message => switch (code) {
+    'invalid_search_options' =>
+      'Check the search country, language and maximum price.',
+    'unsupported_search_country' =>
+      'Product search is unavailable in this country. Please choose another country.',
+    'invalid_search_query' => 'Enter one product name of up to 400 characters.',
     'serpapi_not_configured' ||
     'missing_serpapi_key' ||
     'serpapi_auth_failed' ||
@@ -146,6 +152,61 @@ class RecommendationService {
     final body = await _send(request);
     try {
       return RecommendationReview.fromJson(body);
+    } catch (_) {
+      throw const RecommendationApiException('invalid_response');
+    }
+  }
+
+  Future<RecommendationResult> searchProduct(
+    String query, {
+    String countryCode = 'sa',
+    String location = 'Saudi Arabia',
+    String googleDomain = 'google.com.sa',
+    String language = 'ar',
+    double? maxPrice,
+  }) async {
+    final input = query.trim();
+    if (input.isEmpty ||
+        input.length > 400 ||
+        RegExp(r'[\x00-\x1f\x7f]').hasMatch(input)) {
+      throw const RecommendationApiException('invalid_search_query');
+    }
+    if (!RegExp(r'^[a-z]{2}$').hasMatch(countryCode) ||
+        !['en', 'ar'].contains(language) ||
+        !RegExp(
+          r'^google\.[a-z]{2,3}(?:\.[a-z]{2})?$',
+        ).hasMatch(googleDomain) ||
+        location.trim().isEmpty ||
+        location.length > 200 ||
+        RegExp(r'[\x00-\x1f\x7f]').hasMatch(location) ||
+        (maxPrice != null && !isValidProductSearchPrice(maxPrice))) {
+      throw const RecommendationApiException('invalid_search_options');
+    }
+    if (isKnownUnsupportedSearchCountry(countryCode)) {
+      throw const RecommendationApiException('unsupported_search_country');
+    }
+    final request =
+        http.Request('POST', _uri('search'))
+          ..headers['Content-Type'] = 'application/json'
+          ..headers['Accept'] = 'application/json'
+          ..body = jsonEncode({
+            'q': input,
+            'gl': countryCode,
+            'location': location.trim(),
+            'google_domain': googleDomain,
+            'hl': language,
+            'max_price': maxPrice,
+          });
+    final body = await _send(request);
+    try {
+      if (body['direct_search'] != true ||
+          body['shopping_results'] is! List ||
+          (body['shopping_results'] as List).any(
+            (item) => item is! Map<String, dynamic>,
+          )) {
+        throw const FormatException('Invalid product search result');
+      }
+      return RecommendationResult.fromJson(body);
     } catch (_) {
       throw const RecommendationApiException('invalid_response');
     }

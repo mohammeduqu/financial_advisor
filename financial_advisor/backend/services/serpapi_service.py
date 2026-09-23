@@ -4,12 +4,14 @@ Source fields: https://serpapi.com/shopping-results and
 https://serpapi.com/google-shopping-api (checked 2026-09-08).
 """
 from decimal import Decimal, InvalidOperation
+import hashlib
 import ipaddress
 import json
 import math
 import os
 import re
 import time
+import unicodedata
 from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 import requests
@@ -20,6 +22,17 @@ from services.errors import InvoiceError
 SERPAPI_URL = "https://serpapi.com/search.json"
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_OFFERS = 80
+# Google Shopping has a narrower country list than general Google Search.
+# https://serpapi.com/google-shopping-countries (checked 2026-09-23).
+SHOPPING_COUNTRY_CODES = frozenset({
+    "ai", "ar", "aw", "au", "at", "be", "bm", "br", "io", "ca", "ky", "cl",
+    "cx", "cc", "co", "cz", "dk", "fk", "fi", "fr", "gf", "pf", "tf", "de",
+    "gr", "gp", "hm", "hk", "hu", "in", "id", "ie", "il", "it", "jp", "kr",
+    "my", "mq", "yt", "mx", "ms", "nl", "nc", "nz", "nf", "no", "ph", "pl",
+    "pt", "re", "ro", "ru", "pm", "sa", "sg", "sk", "za", "gs", "es", "se",
+    "ch", "tw", "th", "tk", "tr", "tc", "ua", "ae", "uk", "gb", "us", "vn",
+    "vg", "wf",
+})
 _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫٬", "01234567890123456789.,")
 _SAR = re.compile(r"(?:\bSAR\b|\bSR\b|ر\s*\.\s*س\.?|ريال\s+سعودي|\u20c1)", re.I)
 _FOREIGN = re.compile(
@@ -28,6 +41,11 @@ _FOREIGN = re.compile(
 )
 _NUMBER = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?")
 _BIDI = str.maketrans("", "", "\u200e\u200f\u061c\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+_PROVIDER_IMAGE_PATH = re.compile(
+    r"(?:/searches/[a-zA-Z0-9_-]+/images/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-]+\.(?:png|jpg|jpeg|webp|gif|svg)"
+    r"|/images/url/[a-zA-Z0-9_-]+"
+    r"|/images/i/[a-zA-Z0-9_-]+\.(?:png|jpg|jpeg|webp|gif|svg))"
+)
 
 
 def _text(value, limit=500):
@@ -64,7 +82,7 @@ def safe_public_url(value, *, allow_provider_image=False):
             if not (allow_provider_image and host == "serpapi.com"
                     and parsed.scheme.lower() == "https" and parsed.port in {None, 443}
                     and not parsed.query and not parsed.fragment
-                    and re.fullmatch(r"/searches/[a-zA-Z0-9_-]+/images/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-]+\.(?:png|jpg|jpeg|webp|gif|svg)", parsed.path)):
+                    and _PROVIDER_IMAGE_PATH.fullmatch(parsed.path)):
                 return None
         try:
             if not ipaddress.ip_address(host).is_global:
@@ -273,6 +291,99 @@ def normalize_offers(envelope):
     return offers
 
 
+def direct_search_parameters(query, *, gl="sa", location="Saudi Arabia",
+                             google_domain="google.com.sa", hl="ar", max_price=None):
+    """Validate one literal product name and the user's Shopping search settings."""
+    if not isinstance(query, str) or not 1 <= len(query.strip()) <= 400 or any(
+        unicodedata.category(char) in {"Cc", "Cs", "Zl", "Zp"} for char in query
+    ):
+        raise InvoiceError("invalid_search_text", "Enter one product name of 1 to 400 characters.", 400)
+    query = query.strip()
+    invalid = InvoiceError("invalid_search_options", "Check the country, location, language, domain, and maximum price.", 400)
+    if not isinstance(gl, str) or not re.fullmatch(r"[A-Za-z]{2}", gl.strip()):
+        raise invalid
+    if gl.strip().lower() not in SHOPPING_COUNTRY_CODES:
+        raise InvoiceError(
+            "unsupported_search_country",
+            "Google Shopping does not support the selected country. Choose a supported search country.",
+            400,
+        )
+    if not isinstance(hl, str) or hl.strip().lower() not in {"en", "ar"}:
+        raise invalid
+    if not isinstance(google_domain, str) or not re.fullmatch(
+        r"google\.(?:com|[a-z]{2,3}|(?:com|co)\.[a-z]{2})", google_domain.strip().lower()
+    ):
+        raise invalid
+    if not isinstance(location, str) or not 1 <= len(location.strip()) <= 200 or any(
+        unicodedata.category(char) in {"Cc", "Cs", "Zl", "Zp"} for char in location
+    ):
+        raise invalid
+    maximum = None
+    if max_price is not None:
+        if isinstance(max_price, bool) or not isinstance(max_price, (str, int, float)):
+            raise invalid
+        try:
+            amount = Decimal(str(max_price))
+            if (not amount.is_finite() or amount <= 0 or amount >= Decimal("1000000000")
+                    or amount != amount.quantize(Decimal("0.01"))):
+                raise invalid
+            maximum = float(amount)
+        except (InvalidOperation, ValueError):
+            raise invalid from None
+    return query, {
+        "gl": gl.strip().lower(), "location": location.strip(),
+        "google_domain": google_domain.strip().lower(), "hl": hl.strip().lower(),
+        "max_price": maximum,
+    }
+
+
+def direct_query_key(query, parameters):
+    # Isolate direct results from the older comparison cache and every setting.
+    identity = ["shopping-direct-v1", query, parameters]
+    return hashlib.sha256(json.dumps(
+        identity, ensure_ascii=False, sort_keys=True, allow_nan=False,
+    ).encode("utf-8")).hexdigest()
+
+
+def normalize_listings(envelope):
+    """Keep Shopping's card order and fields, including incomplete listings."""
+    rows = envelope.get("shopping_results")
+    if not isinstance(rows, list):
+        return []
+    offers = []
+    for row in rows:
+        if not isinstance(row, dict) or not (title := _text(row.get("title"))):
+            continue
+        raw_price = row.get("extracted_price")
+        amount = None
+        if isinstance(raw_price, (int, float)) and not isinstance(raw_price, bool):
+            try:
+                if raw_price > 0 and math.isfinite(raw_price):
+                    amount = float(raw_price)
+            except OverflowError:
+                pass
+        label = _text(row.get("price"), 200) or _text(row.get("price_label"), 200)
+        # Currency metadata must never gate a card or reinterpret the number.
+        currency = _text(row.get("currency"), 8)
+        currency = currency.upper() if currency and re.fullmatch(r"[A-Za-z]{3}", currency) else None
+        if currency is None:
+            parsed = listing_price({"price": label, "extracted_price": amount})
+            currency = parsed[1] if parsed is not None else None
+        offers.append({
+            "title": title,
+            "product_link": safe_public_url(row.get("product_link")),
+            "source": _text(row.get("source"), 160),
+            "serpapi_thumbnail": safe_image_url(row.get("serpapi_thumbnail")),
+            "source_icon": safe_image_url(row.get("source_icon")),
+            "extracted_price": amount,
+            "price_label": label,
+            "currency": currency,
+        })
+        if len(offers) >= MAX_OFFERS:
+            break
+    return offers
+
+
 class SerpApiService:
     def __init__(
         self, api_key=None, cache=None, ttl_seconds=43200, cache_path=None,
@@ -286,6 +397,36 @@ class SerpApiService:
             raise ValueError("Use a two-letter shopping region and en/ar language.")
         self.timeout_seconds = max(5, min(60, float(timeout_seconds)))
         self.session_factory = session_factory or requests.Session
+
+    def search_listings(self, query, *, gl="sa", location="Saudi Arabia",
+                        google_domain="google.com.sa", hl="ar", max_price=None):
+        query, parameters = direct_search_parameters(
+            query, gl=gl, location=location, google_domain=google_domain,
+            hl=hl, max_price=max_price,
+        )
+        if not self.api_key:
+            raise InvoiceError(
+                "serpapi_not_configured",
+                "Price search is not configured. Set SERPAPI_KEY in the Flask backend .env and restart Flask.",
+                503,
+            )
+
+        def fetch():
+            params = {"engine": "google_shopping", "q": query, "api_key": self.api_key}
+            params.update({key: value for key, value in parameters.items() if value is not None})
+            if "max_price" in params:
+                params["max_price"] = format(Decimal(str(params["max_price"])).normalize(), "f")
+            return {
+                "offers": normalize_listings(self._request(params)),
+                "query": query, "fetched_at": self.cache.timestamp(),
+            }
+
+        result = self.cache.get_or_fetch(direct_query_key(query, parameters), fetch)
+        # Reapply the same small allowlist to cached cards before exposing them.
+        result["offers"] = normalize_listings({"shopping_results": result["offers"]})
+        result["query"] = query
+        result["search_parameters"] = parameters
+        return result
 
     def search_products(self, query):
         query = normalize_query(query)
