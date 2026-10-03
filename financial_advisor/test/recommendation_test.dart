@@ -303,6 +303,7 @@ void main() {
       await store.start(
         userName: 'Alex',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
         useDemo: false,
       );
       final ledger = prefs.getString('numo_v1');

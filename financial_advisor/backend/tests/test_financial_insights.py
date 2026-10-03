@@ -25,10 +25,7 @@ def body():
 
 
 def output():
-    return {"summary": "Food spending is 15 SAR this month.", "insights": [{
-        "title": "Plan food spending", "observation": "Recorded food spending is 15 SAR.",
-        "action": "Set a food spending limit for the rest of the month.", "category": "Food",
-    }]}
+    return {"summary": "Food spending is 15 SAR this month. Plan a food budget."}
 
 
 class FinancialInsightsTests(unittest.TestCase):
@@ -135,6 +132,76 @@ class FinancialInsightsTests(unittest.TestCase):
         self.assertNotIn('"merchant":"Shop 0"', prompt)
         self.assertEqual(self.shopping.mock_calls, [])
 
+    def test_summary_includes_income_and_recurring_commitments_without_double_counting(self):
+        value = body()
+        value["income"] = [
+            {"date": "2026-09-01", "amount_cents": 10000},
+            {"date": "2026-08-02", "amount_cents": 8000},
+            {"date": "2026-08-31", "amount_cents": 9000},
+        ]
+        value["recurring"] = [{
+            "category": "Housing", "amount_cents": 4000, "frequency": "monthly", "interval": 1,
+            "start_date": "2026-01-01", "end_date": None,
+        }]
+        facts = prepare_expense_facts(value)
+        self.assertEqual(facts["recorded_income"], {
+            "record_count": 1, "total_income_cents": 10000,
+            "comparison_record_count": 1, "comparison_total_income_cents": 8000,
+            "net_cash_flow_cents": 8500,
+        })
+        self.assertEqual(facts["based_on"]["total_expense_cents"], 1500)
+        self.assertEqual(facts["recurring_expense_plans"][0]["amount_per_occurrence_cents"], 4000)
+        self.assertEqual(self.post(value).status_code, 200)
+        self.ai.generate.assert_called_once()
+        _, schema, system, prompt = self.ai.generate.call_args.args
+        self.assertEqual(schema["required"], ["summary"])
+        self.assertIn("one concise paragraph", system)
+        self.assertIn("Never add them again", system)
+        self.assertIn('"net_cash_flow_cents":8500', prompt)
+
+    def test_sequential_recurring_revisions_preserve_effective_dates(self):
+        value = body()
+        value["recurring"] = [
+            {"category": "Food", "amount_cents": 10000, "frequency": "daily",
+             "interval": 1, "start_date": "2026-09-01", "end_date": "2026-09-15"},
+            {"category": "Food", "amount_cents": 15000, "frequency": "daily",
+             "interval": 1, "start_date": "2026-09-16", "end_date": None},
+        ]
+        value["as_of"] = "2026-09-29"
+        facts = prepare_expense_facts(value)
+        plans = facts["recurring_expense_plans"]
+        self.assertEqual(len(plans), 2)
+        self.assertEqual([plan["amount_per_occurrence_cents"] for plan in plans], [10000, 15000])
+        self.assertEqual(plans[0]["end_date"], "2026-09-15")
+        self.assertEqual(plans[1]["start_date"], "2026-09-16")
+        self.assertIsNone(plans[1]["end_date"])
+        self.assertEqual([plan["template_count"] for plan in plans], [1, 1])
+
+    def test_new_financial_context_is_validated_before_model_call(self):
+        plan = {"category": "Food", "amount_cents": 10, "frequency": "weekly", "interval": 1,
+                "start_date": "2026-09-01", "end_date": None}
+        cases = [
+            {**body(), "income": [{"date": "2026-09-24", "amount_cents": 100}]},
+            {**body(), "income": [{"date": "2026-09-01", "amount_cents": True}]},
+            {**body(), "income": [{"date": "2026-09-01", "amount_cents": 100, "name": "Private"}]},
+            {**body(), "income": {}}, {**body(), "recurring": {}},
+        ]
+        for key, invalids in {"frequency": ["once", None], "interval": [0, True, 1001],
+                              "end_date": ["2026-08-01", "invalid"], "amount_cents": [-1]}.items():
+            cases.extend({**body(), "recurring": [{**plan, key: invalid}]} for invalid in invalids)
+        for value in cases:
+            self.assertEqual(self.post(value).status_code, 400)
+        self.ai.generate.assert_not_called()
+
+    def test_absent_income_is_unknown_and_outside_period_plans_are_excluded(self):
+        value = body()
+        plan = {"category": "Food", "amount_cents": 10, "frequency": "yearly", "interval": 1,
+                "start_date": "2026-10-01", "end_date": None}
+        value["recurring"] = [plan, {**plan, "start_date": "2025-01-01", "end_date": "2026-08-31"}]
+        facts = prepare_expense_facts(value)
+        self.assertIsNone(facts["recorded_income"]["net_cash_flow_cents"])
+        self.assertEqual(facts["recurring_expense_plans"], [])
+
     def test_no_expenses_or_previous_month_only_do_not_call_ai(self):
         for expenses in ([], [expense("2026-08-01")]):
             value = body()
@@ -232,19 +299,11 @@ class FinancialInsightsTests(unittest.TestCase):
     def test_model_output_is_strictly_validated_and_cannot_replace_metadata(self):
         invalid = [None, "[]", "```json\n{}\n```", "x" * (MAX_MODEL_BYTES + 1), '{"summary":"a","summary":"b"}']
         for key, values in {
-            "summary": ["", "  ", "x" * 601, None, "x\x00"],
-            "insights": [None, [], [output()["insights"][0]] * 6, [None]],
+            "summary": ["", "  ", "x" * 1201, None, "x\x00"],
+            "insights": [None, [], [{"title": "Not a summary"}]],
             "based_on": [{"total_expense_cents": 0}],
         }.items():
             invalid += [json.dumps({**output(), key: value}) for value in values]
-        for key, values in {
-            "title": ["", "x" * 101, 1], "observation": [None, "x" * 601],
-            "action": ["", []], "category": [[], "Food ", "Housing", "Overall"], "savings": [100],
-        }.items():
-            for value in values:
-                changed = output()
-                changed["insights"][0][key] = value
-                invalid.append(json.dumps(changed))
         for text in invalid:
             with self.subTest(text=str(text)[:80]):
                 self.ai.generate.return_value = text
@@ -258,30 +317,20 @@ class FinancialInsightsTests(unittest.TestCase):
         value["expenses"] = [expense(amount=1, merchant=""), expense(amount=2, merchant=" ")]
         self.assertEqual(prepare_expense_facts(value)["based_on"]["total_expense_cents"], 3)
         answer = output()
-        answer["insights"][0]["category"] = None
         self.assertEqual(validate_insights(json.dumps(answer), prepare_expense_facts(value)), answer)
 
     def test_multiline_model_body_text_is_allowed_but_other_controls_are_rejected(self):
         answer = output()
         answer["summary"] = "Food spending is 15 SAR.\nReview the food budget."
-        answer["insights"][0]["observation"] = "Recorded expenses:\r\nFood spending is 15 SAR."
-        answer["insights"][0]["action"] = "Plan meals.\n\tCompare store prices before shopping."
         self.ai.generate.return_value = json.dumps(answer)
         response = self.post()
         self.assertEqual(response.status_code, 200, response.json)
         self.assertEqual(response.json["summary"], answer["summary"])
-        self.assertEqual(response.json["insights"], answer["insights"])
-        for field in ("summary", "observation", "action", "title"):
-            invalid = copy.deepcopy(answer)
-            target = invalid if field == "summary" else invalid["insights"][0]
-            target[field] += "\x00"
-            self.ai.generate.return_value = json.dumps(invalid)
-            self.assertEqual(self.post().json["code"], "invalid_insights_response")
+        self.assertNotIn("insights", response.json)
+        invalid = {"summary": answer["summary"] + "\x00"}
+        self.ai.generate.return_value = json.dumps(invalid)
+        self.assertEqual(self.post().json["code"], "invalid_insights_response")
         for control in ("\n", "\r", "\t"):
-            invalid = copy.deepcopy(answer)
-            invalid["insights"][0]["title"] += control
-            self.ai.generate.return_value = json.dumps(invalid)
-            self.assertEqual(self.post().json["code"], "invalid_insights_response")
             value = body()
             value["expenses"][0]["merchant"] += control
             self.assertEqual(self.post(value).json["code"], "invalid_insights_request")

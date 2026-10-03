@@ -263,6 +263,15 @@ void main() {
       );
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
+      expect(calls, 0);
+      expect(find.byType(RecommendationResultsPage), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('search-product')),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('search-product')));
+      await tester.pumpAndSettle();
       expect(find.byType(RecommendationResultsPage), findsOneWidget);
       expect(find.byType(RecommendationReviewPage), findsNothing);
       expect(calls, 1);

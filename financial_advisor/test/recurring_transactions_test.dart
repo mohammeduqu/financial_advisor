@@ -285,11 +285,11 @@ void main() {
     );
     await store.stopRecurringTransaction('weekly');
     expect(store.entries, hasLength(1));
-    expect(store.recurringTransactions, isEmpty);
+    expect(store.recurringTransactions.single.active, isFalse);
     final restored = FinanceStore(prefs);
     await restored.load(now: DateTime(2027));
     expect(restored.entries, hasLength(1));
-    expect(restored.recurringTransactions, isEmpty);
+    expect(restored.recurringTransactions.single.active, isFalse);
     expect(await restored.processRecurringEntries(now: DateTime(2028)), 0);
   });
 

@@ -16,6 +16,7 @@ void main() {
       await store.start(
         userName: 'Alex',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
         useDemo: false,
       );
       await store.setLanguage('en');

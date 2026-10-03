@@ -1,6 +1,7 @@
 import '../l10n/app_language.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import '../core/finance_store.dart';
 import 'design.dart';
 
@@ -14,20 +15,51 @@ const chartColors = [
 
 class SpendingTrend extends StatelessWidget {
   final FinanceStore store;
-  final DateTime month;
+  final DateTime? month;
   const SpendingTrend({super.key, required this.store, required this.month});
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final days =
-        monthKey(now) == monthKey(month)
-            ? now.day
-            : DateTime(month.year, month.month + 1, 0).day;
-    final values = List<double>.filled(days, 0);
-    for (final entry in store
-        .forMonth(month)
-        .where((e) => !e.income && e.date.day <= days)) {
-      values[entry.date.day - 1] += entry.cents / 100;
+    final selectedMonth = month;
+    final entries = store.forPeriod(selectedMonth);
+    final List<double> values;
+    final String firstLabel, lastLabel;
+    final String semantics;
+    if (selectedMonth != null) {
+      final days = DateTime(selectedMonth.year, selectedMonth.month + 1, 0).day;
+      values = List<double>.filled(days, 0);
+      for (final entry in entries.where((entry) => !entry.income)) {
+        values[entry.date.day - 1] += entry.cents / 100;
+      }
+      firstLabel = 'Day 1';
+      lastLabel = 'Day $days';
+      semantics = 'Cumulative spending over $days days';
+    } else {
+      // The extent comes from saved history, so a calendar rollover cannot
+      // replace earlier data or change the displayed reporting period.
+      final firstDate = entries.lastOrNull?.date;
+      final lastDate = entries.firstOrNull?.date;
+      final months =
+          firstDate == null || lastDate == null
+              ? 0
+              : (lastDate.year - firstDate.year) * 12 +
+                  lastDate.month -
+                  firstDate.month +
+                  1;
+      values = List<double>.filled(months + 1, 0);
+      if (firstDate != null) {
+        for (final entry in entries.where((entry) => !entry.income)) {
+          final index =
+              (entry.date.year - firstDate.year) * 12 +
+              entry.date.month -
+              firstDate.month +
+              1;
+          values[index] += entry.cents / 100;
+        }
+      }
+      final dateFormat = DateFormat.yMMM(languageOf(context));
+      firstLabel = firstDate == null ? '' : dateFormat.format(firstDate);
+      lastLabel = lastDate == null ? '' : dateFormat.format(lastDate);
+      semantics = 'Cumulative spending across all dates';
     }
     for (var i = 1; i < values.length; i++) {
       values[i] += values[i - 1];
@@ -53,9 +85,9 @@ class SpendingTrend extends StatelessWidget {
                   color: blue.withValues(alpha: .09),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const AppText(
-                  'Selected month',
-                  style: TextStyle(fontSize: 10, color: blue),
+                child: AppText(
+                  selectedMonth == null ? 'All time' : 'Selected month',
+                  style: const TextStyle(fontSize: 10, color: blue),
                 ),
               ),
             ],
@@ -92,7 +124,7 @@ class SpendingTrend extends StatelessWidget {
                 child: Semantics(
                   label: tr(
                     context,
-                    'Cumulative spending over $days days: ${store.currency} ${money((values.last * 100).round())}',
+                    '$semantics: ${store.currency} ${money((values.last * 100).round())}',
                   ),
                   child: SizedBox(
                     height: 130,
@@ -107,12 +139,12 @@ class SpendingTrend extends StatelessWidget {
             textDirection: TextDirection.ltr,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const AppText(
-                'Day 1',
-                style: TextStyle(fontSize: 10, color: muted),
+              AppText(
+                firstLabel,
+                style: const TextStyle(fontSize: 10, color: muted),
               ),
               AppText(
-                'Day $days',
+                lastLabel,
                 style: const TextStyle(fontSize: 10, color: muted),
               ),
             ],
@@ -190,128 +222,154 @@ class _TrendPainter extends CustomPainter {
 
 class BudgetDistribution extends StatelessWidget {
   final FinanceStore store;
-  final DateTime month;
+  final DateTime? month;
   const BudgetDistribution({
     super.key,
     required this.store,
     required this.month,
   });
+
   @override
   Widget build(BuildContext context) {
-    final items =
-        categories.where((c) => store.budgetFor(month, c) > 0).toList()..sort(
-          (a, b) =>
-              store.budgetFor(month, b).compareTo(store.budgetFor(month, a)),
+    final totals = <String, int>{};
+    for (final entry in store.forPeriod(month)) {
+      if (!entry.income && entry.cents > 0) {
+        totals.update(
+          entry.category,
+          (value) => value + entry.cents,
+          ifAbsent: () => entry.cents,
         );
-    final labels = items.take(3).toList();
-    final amounts = labels.map((c) => store.budgetFor(month, c)).toList();
-    if (items.length > 3) {
-      labels.add('Other categories');
-      amounts.add(
-        items.skip(3).fold(0, (v, c) => v + store.budgetFor(month, c)),
-      );
+      }
     }
+    final items =
+        totals.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final amounts = items.map((item) => item.value).toList();
     final total = amounts.fold(0, (a, b) => a + b);
+    String percentage(int amount) {
+      final percent = amount / total * 100;
+      if (percent < .1) return '<0.1%';
+      return '${percent.toStringAsFixed(percent == percent.roundToDouble() ? 0 : 1)}%';
+    }
+
     return Surface(
+      key: const Key('expense-distribution'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppText(
-            'Budget distribution',
+            'Expense distribution',
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
-          const AppText(
-            'Your category allocations',
-            style: TextStyle(fontSize: 11, color: muted),
+          AppText(
+            month == null
+                ? 'Share of all expenses'
+                : 'Share of selected month’s expenses',
+            style: const TextStyle(fontSize: 11, color: muted),
           ),
           const SizedBox(height: 22),
-          Row(
-            children: [
-              SizedBox(
-                width: 116,
-                height: 116,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: ExcludeSemantics(
-                        child: CustomPaint(painter: _DonutPainter(amounts)),
-                      ),
+          Center(
+            child: SizedBox(
+              width: 190,
+              height: 190,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    child: ExcludeSemantics(
+                      child: CustomPaint(painter: _DonutPainter(amounts)),
                     ),
-                    Column(
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(36),
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        AppText(
-                          '${items.length}',
-                          style: const TextStyle(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w700,
-                            color: ink,
+                        const AppText(
+                          'Total expenses',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 11, color: muted),
+                        ),
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          child: AppText(
+                            money(total),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                        const AppText(
-                          'categories',
-                          style: TextStyle(fontSize: 10, color: muted),
+                        AppText(
+                          store.currency,
+                          style: const TextStyle(fontSize: 11, color: muted),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 22),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (total == 0)
-                      const AppText(
-                        'Set category budgets in Plan to see your allocation.',
-                        style: TextStyle(fontSize: 12, color: muted),
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (total == 0)
+            const AppText(
+              'Add an expense to see your distribution.',
+              style: TextStyle(fontSize: 12, color: muted),
+            ),
+          for (var i = 0; i < items.length; i++)
+            Padding(
+              key: ValueKey('expense-share-${items[i].key}'),
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: chartColors[i % chartColors.length],
+                        shape: BoxShape.circle,
                       ),
-                    for (var i = 0; i < labels.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: chartColors[i],
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: AppText(
-                                labels[i],
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: muted,
-                                ),
-                              ),
-                            ),
-                            AppText(
-                              '${(amounts[i] / total * 100).round()}%',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: AppText(
+                      items[i].key,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      AppText(
+                        percentage(items[i].value),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                  ],
-                ),
+                      const SizedBox(height: 3),
+                      AppText(
+                        '${store.currency} ${money(items[i].value)}',
+                        style: const TextStyle(fontSize: 11, color: muted),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          AppText(
-            '${store.currency} ${money(total)} allocated across categories',
-            style: const TextStyle(fontSize: 11, color: muted),
-          ),
+            ),
+          if (total > 0) ...[
+            const SizedBox(height: 12),
+            AppText(
+              '${store.currency} ${money(total)} spent across categories',
+              style: const TextStyle(fontSize: 11, color: muted),
+            ),
+          ],
         ],
       ),
     );
@@ -323,24 +381,44 @@ class _DonutPainter extends CustomPainter {
   _DonutPainter(this.amounts);
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = (Offset.zero & size).deflate(9);
+    final rect = (Offset.zero & size).deflate(16);
     final paint =
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 12
-          ..strokeCap = StrokeCap.round;
+          ..strokeWidth = 26;
     canvas.drawArc(rect, 0, math.pi * 2, false, paint..color = line);
     final total = amounts.fold(0, (a, b) => a + b);
+    if (total <= 0) return;
     var start = -math.pi / 2;
     for (var i = 0; i < amounts.length; i++) {
       final sweep = amounts[i] / total * math.pi * 2;
+      final gap = math.min(.035, sweep / 5);
       canvas.drawArc(
         rect,
-        start + .035,
-        math.max(.001, sweep - .07),
+        start + gap / 2,
+        sweep - gap,
         false,
-        paint..color = chartColors[i],
+        paint..color = chartColors[i % chartColors.length],
       );
+      // Small segments retain a readable exact percentage in the legend.
+      if (amounts[i] / total >= .07) {
+        final label = TextPainter(
+          text: TextSpan(
+            text: '${(amounts[i] / total * 100).round()}%',
+            style: const TextStyle(
+              color: Color(0xFF090F18),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final angle = start + sweep / 2;
+        final center =
+            rect.center +
+            Offset(math.cos(angle), math.sin(angle)) * (rect.width / 2);
+        label.paint(canvas, center - Offset(label.width / 2, label.height / 2));
+      }
       start += sweep;
     }
   }

@@ -1,6 +1,7 @@
 """Backend-only OpenAI vision transport for invoice and shopping-list extraction."""
 import base64
 import json
+import time
 
 import requests
 
@@ -69,6 +70,7 @@ class OpenAIService:
                 "schema": _strict_schema(schema),
             }},
         }
+        deadline = time.monotonic() + self.timeout_seconds
         try:
             with requests.Session() as session:
                 # The key and receipt go only to OpenAI, without proxy env vars,
@@ -83,6 +85,8 @@ class OpenAIService:
                     self._check_status(response.status_code)
                     chunks, size = [], 0
                     for chunk in response.iter_content(chunk_size=16 * 1024):
+                        if time.monotonic() > deadline:
+                            raise InvoiceError("analysis_timeout", "Invoice analysis timed out. Please try again.", 504)
                         size += len(chunk)
                         if size > MAX_RESPONSE_BYTES:
                             raise InvoiceError("analysis_failed", "AI analysis returned too much data.", 502)

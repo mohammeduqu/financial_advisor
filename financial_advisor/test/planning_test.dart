@@ -22,24 +22,29 @@ void main() {
   });
 
   test(
-    'copy budgets preserves current overrides and isolates months',
+    'copy category budgets preserves overrides and never changes overall limits',
     () async {
       final dec = DateTime(2025, 12);
       final jan = DateTime(2026, 1);
       await store.setBudget(dec, 'Overall', 100000);
       await store.setBudget(dec, 'Food', 20000);
+      await store.setBudget(dec, 'Travel', 5000);
       await store.setBudget(jan, 'Food', 30000);
       expect(await store.copyPreviousBudgets(jan), 1);
-      expect(store.budgetFor(jan), 100000);
-      expect(store.budgetFor(jan, 'Food'), 30000);
-      expect(await store.copyPreviousBudgets(jan), 0);
-      await store.setBudget(jan, 'Overall', 0);
       expect(store.budgetFor(jan), 0);
+      expect(store.budgetFor(jan, 'Food'), 30000);
+      expect(store.budgetFor(jan, 'Travel'), 5000);
+      expect(await store.copyPreviousBudgets(jan), 0);
+      await store.setBudget(jan, 'Overall', 80000);
+      expect(await store.copyPreviousBudgets(jan), 0);
+      expect(store.budgetFor(jan), 80000);
       expect(store.budgetFor(dec), 100000);
       final restored = FinanceStore(store.prefs);
       await restored.load();
       expect(restored.budgetFor(jan, 'Food'), 30000);
-      expect(restored.budgetFor(jan), 0);
+      expect(restored.budgetFor(jan, 'Travel'), 5000);
+      expect(restored.budgetFor(jan), 80000);
+      expect(restored.budgetFor(dec), 100000);
     },
   );
 
@@ -80,6 +85,7 @@ void main() {
       await store.start(
         userName: 'Test',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
         useDemo: true,
       );
       final data =

@@ -5,6 +5,7 @@ import '../core/finance_store.dart';
 import '../core/invoice.dart';
 import '../core/recommendation.dart';
 import 'recommendation_review.dart';
+import 'transactions.dart';
 import '../l10n/app_language.dart';
 import '../widgets/design.dart';
 
@@ -23,6 +24,7 @@ class InvoiceReviewScreen extends StatefulWidget {
   final String? receipt;
   final List<String> warnings;
   final Entry? existingEntry;
+  final RecurringScope? recurringScope;
   const InvoiceReviewScreen({
     super.key,
     required this.store,
@@ -30,6 +32,7 @@ class InvoiceReviewScreen extends StatefulWidget {
     this.receipt,
     this.warnings = const [],
     this.existingEntry,
+    this.recurringScope,
   });
   @override
   State<InvoiceReviewScreen> createState() => _InvoiceReviewScreenState();
@@ -56,10 +59,11 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
     merchant = TextEditingController(text: value.merchantName ?? '');
     number = TextEditingController(text: value.invoiceNumber ?? '');
     date = TextEditingController(
-      text: DateFormat(
-        'yyyy-MM-dd',
-        'en',
-      ).format(widget.existingEntry?.date ?? DateTime.now()),
+      text: DateFormat('yyyy-MM-dd', 'en').format(
+        widget.existingEntry?.recurringId != null
+            ? (value.date ?? widget.existingEntry!.date)
+            : (widget.existingEntry?.date ?? DateTime.now()),
+      ),
     );
     subtotal = TextEditingController(text: amountText(value.subtotal));
     tax = TextEditingController(text: amountText(value.tax));
@@ -257,18 +261,42 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
         );
         if (!accepted || !mounted) return;
       }
-      await widget.store.saveInvoice(
-        value,
-        id: id,
-        receipt: widget.receipt,
-        note: widget.existingEntry?.note ?? '',
-      );
+      final previous = widget.existingEntry;
+      if (previous != null &&
+          widget.store.recurringForEntry(previous) != null) {
+        await widget.store.updateRecurringEntry(
+          previous.copyWith(
+            merchant:
+                value.merchantName != widget.invoice.merchantName
+                    ? value.merchantName!
+                    : previous.merchant,
+            cents:
+                value.totalCents != widget.invoice.totalCents
+                    ? value.totalCents!
+                    : previous.cents,
+            category:
+                value.category != widget.invoice.category
+                    ? value.category
+                    : previous.category,
+            invoice: value,
+          ),
+          scope: widget.recurringScope ?? RecurringScope.onlyThis,
+        );
+      } else {
+        await widget.store.saveInvoice(
+          value,
+          id: id,
+          receipt: widget.receipt,
+          note: previous?.note ?? '',
+        );
+      }
       if (!mounted) return;
       if (widget.store.error != null) {
         setState(() => error = widget.store.error);
         return;
       }
-      final savedEntry = widget.store.entries.firstWhere((e) => e.id == id);
+      final savedEntry =
+          widget.store.entries.where((e) => e.id == id).firstOrNull;
       Navigator.pop(
         context,
         InvoiceReviewResult(InvoiceReviewAction.saved, entry: savedEntry),
@@ -284,6 +312,58 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<void> editRepeatSettings() async {
+    if (busy || widget.existingEntry == null) return;
+    final validationError = validateAllFields();
+    if (validationError != null || !form.currentState!.validate()) {
+      setState(
+        () =>
+            error =
+                validationError ??
+                'Could not save this invoice. Check the fields and try again.',
+      );
+      return;
+    }
+    if (totalsDiffer && !amountsReviewed) {
+      setState(
+        () =>
+            error =
+                'Review the amounts and confirm the invoice total before saving.',
+      );
+      return;
+    }
+    final value = snapshot();
+    final previous = widget.existingEntry!;
+    final candidate = previous.copyWith(
+      merchant:
+          value.merchantName != widget.invoice.merchantName
+              ? value.merchantName!
+              : previous.merchant,
+      cents:
+          value.totalCents != widget.invoice.totalCents
+              ? value.totalCents!
+              : previous.cents,
+      category:
+          value.category != widget.invoice.category
+              ? value.category
+              : previous.category,
+      invoice: value,
+    );
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => EntryEditor(
+              store: widget.store,
+              entry: candidate,
+              recurringScope: widget.recurringScope,
+              scheduleOnly: true,
+            ),
+      ),
+    );
+    if (saved == true && mounted) Navigator.pop(context);
   }
 
   Widget field(
@@ -375,7 +455,17 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
                         }
                         if (!mounted) return;
                         setState(() => busy = true);
-                        await widget.store.deleteEntry(id);
+                        if (widget.store.recurringForEntry(
+                              widget.existingEntry!,
+                            ) !=
+                            null) {
+                          await widget.store.deleteRecurringEntry(
+                            widget.existingEntry!,
+                            scope: RecurringScope.onlyThis,
+                          );
+                        } else {
+                          await widget.store.deleteEntry(id);
+                        }
                         if (!context.mounted) return;
                         Navigator.pop(context);
                       },
@@ -387,10 +477,23 @@ class _InvoiceReviewScreenState extends State<InvoiceReviewScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            if (widget.recurringScope != null) ...[
+              AppText(recurringScopeLabel(widget.recurringScope!)),
+              const SizedBox(height: 12),
+            ],
             const AppText(
               'Check every field against the photo. Missing information stays blank.',
             ),
             const SizedBox(height: 16),
+            if (widget.existingEntry != null) ...[
+              OutlinedButton.icon(
+                key: const Key('invoice-repeat-settings'),
+                onPressed: busy ? null : editRepeatSettings,
+                icon: const Icon(Icons.repeat),
+                label: const AppText('Repeat settings'),
+              ),
+              const SizedBox(height: 16),
+            ],
             OutlinedButton.icon(
               key: const Key('compare-invoice-prices'),
               onPressed: busy || items.isEmpty ? null : comparePrices,

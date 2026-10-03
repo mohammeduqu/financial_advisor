@@ -136,7 +136,14 @@ class AuroraBackground extends StatelessWidget {
 class PageHeading extends StatelessWidget {
   final String eyebrow, title;
   final Widget? action;
-  const PageHeading(this.eyebrow, this.title, {super.key, this.action});
+  final int? titleMaxLines;
+  const PageHeading(
+    this.eyebrow,
+    this.title, {
+    super.key,
+    this.action,
+    this.titleMaxLines,
+  });
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 24),
@@ -157,7 +164,12 @@ class PageHeading extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              AppText(title, style: Theme.of(context).textTheme.headlineMedium),
+              AppText(
+                title,
+                style: Theme.of(context).textTheme.headlineMedium,
+                maxLines: titleMaxLines,
+                overflow: titleMaxLines == null ? null : TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),

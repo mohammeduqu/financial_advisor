@@ -25,7 +25,12 @@ Future<FinanceStore> openInvoice(
 ) async {
   SharedPreferences.setMockInitialValues({});
   final store = FinanceStore(await SharedPreferences.getInstance());
-  await store.start(userName: 'Alex', selectedCurrency: 'SAR', useDemo: false);
+  await store.start(
+    userName: 'Alex',
+    selectedCurrency: 'SAR',
+    acceptedLegal: true,
+    useDemo: false,
+  );
   await store.setLanguage('en');
   await tester.pumpWidget(TadbeerApp(store: store));
   await tester.pumpAndSettle();

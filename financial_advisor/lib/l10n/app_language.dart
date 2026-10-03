@@ -81,6 +81,130 @@ class AppText extends StatelessWidget {
 }
 
 const arabic = <String, String>{
+  'Name must be fewer than {0} characters.':
+      'يجب أن يكون الاسم أقل من {0} حرف.',
+  'Profile details': 'بيانات الملف الشخصي',
+  'Edit profile': 'تعديل الملف الشخصي',
+  'Name': 'الاسم',
+  'Scheduled changes': 'التغييرات المجدولة',
+  'From {0}': 'بدءًا من {0}',
+  'Start date must be after earlier recorded occurrences.':
+      'يجب أن يكون تاريخ البداية بعد المعاملات السابقة المسجلة في هذه السلسلة.',
+  'When you scan an invoice, the backend sends its image to OpenAI to extract the details. When you request insights, a financial summary is sent to OpenAI. Product searches are sent to SerpAPI after you press Search stores. Review extracted details before saving an expense.':
+      'عند مسح فاتورة، يرسل الخادم صورتها إلى OpenAI لاستخراج التفاصيل. وعند طلب الرؤى، يُرسل ملخص مالي إلى OpenAI. تُرسل عمليات البحث عن المنتجات إلى SerpAPI بعد الضغط على زر البحث في المتاجر. راجع التفاصيل المستخرجة قبل حفظ المصروف.',
+  'Invoice details': 'تفاصيل الفاتورة',
+  'The original invoice amount differs from this edited transaction. Repeat settings keep the original invoice unchanged.':
+      'يختلف مبلغ الفاتورة الأصلية عن هذه المعاملة المعدلة. تحافظ إعدادات التكرار على الفاتورة الأصلية دون تغيير.',
+  'Name must be 100 characters or fewer.': 'يجب ألا يتجاوز الاسم 100 حرف.',
+  'Enter your name.': 'أدخل اسمك.',
+  'Country / location': 'الدولة / الموقع',
+  'Profile updated': 'تم تحديث الملف الشخصي',
+  'Check your profile details and try again.':
+      'راجع بيانات ملفك الشخصي وحاول مجدداً.',
+  'Changing currency updates the account unit. Existing amounts are not converted.':
+      'تغيير العملة يغيّر وحدة الحساب دون تحويل المبالغ المسجلة بسعر صرف.',
+  'Save profile': 'حفظ الملف الشخصي',
+  'You can change your name, currency, country and app language from Profile.':
+      'يمكنك تعديل اسمك وعملتك ودولتك ولغة التطبيق من الملف الشخصي.',
+  'Privacy & data': 'الخصوصية والبيانات',
+  'Privacy & terms': 'الخصوصية والشروط',
+  'Privacy': 'الخصوصية',
+  'Terms of use': 'شروط الاستخدام',
+  'I agree to the Terms of use and acknowledge the Privacy notice.':
+      'أوافق على شروط الاستخدام وأقرّ بالاطلاع على إشعار الخصوصية.',
+  'Please review the Privacy notice and Terms of use. Check the box below to continue using Tadbeer.':
+      'يرجى مراجعة إشعار الخصوصية وشروط الاستخدام، ثم تحديد المربع أدناه لمتابعة استخدام تدبير.',
+  'Could not save your agreement. Please try again.':
+      'تعذّر حفظ موافقتك. يرجى المحاولة مرة أخرى.',
+  'Continue': 'متابعة',
+  'Read our privacy notice and terms of use.':
+      'اطّلع على إشعار الخصوصية وشروط الاستخدام.',
+  'Learn how your data is processed.': 'تعرّف على كيفية معالجة بياناتك.',
+  'View privacy information': 'معلومات الخصوصية ومعالجة البيانات',
+  'Choose month': 'اختر الشهر',
+  'Previous year': 'السنة السابقة',
+  'Next year': 'السنة التالية',
+  'Close': 'إغلاق',
+  'Expense distribution': 'توزيع المصروفات',
+  'Share of this month’s expenses': 'النسبة من مصروفات هذا الشهر',
+  'Total expenses': 'إجمالي المصروفات',
+  'Total income': 'إجمالي الدخل',
+  'Add an expense to see your distribution.':
+      'أضف مصروفاً لعرض توزيع المصروفات.',
+  '{0} spent across categories': '{0} موزعة على فئات المصروفات',
+  'Jordan': 'الأردن',
+  'Lebanon': 'لبنان',
+  'France': 'فرنسا',
+  'Germany': 'ألمانيا',
+  'India': 'الهند',
+  'Pakistan': 'باكستان',
+  'Canada': 'كندا',
+  'Australia': 'أستراليا',
+  'Only this transaction': 'هذه المعاملة فقط',
+  'This and future transactions': 'هذه المعاملة وجميع المعاملات المستقبلية',
+  'All transactions in this series': 'جميع المعاملات المرتبطة',
+  'Apply changes to': 'تطبيق التعديل على',
+  'The repeat schedule stays unchanged for other transactions.':
+      'تبقى إعدادات التكرار للمعاملات الأخرى دون تغيير.',
+  'Change scope': 'تغيير نطاق التعديل',
+  'Edit recurring transaction': 'تعديل المعاملة الأصلية المتكررة',
+  'Repeat settings': 'إعدادات التكرار',
+  'Repeat every': 'التكرار كل',
+  'days': 'أيام',
+  'weeks': 'أسابيع',
+  'months': 'أشهر',
+  'years': 'سنوات',
+  'Repeat every {0} {1}': 'التكرار كل {0} {1}',
+  'Enter a whole number from 1 to 365': 'أدخل عدداً صحيحاً من 1 إلى 365',
+  'No end date': 'دون تاريخ انتهاء',
+  'Ends: {0}': 'ينتهي في: {0}',
+  'Remove end date': 'إزالة تاريخ الانتهاء',
+  'End date must be on or after the start date.':
+      'يجب ألا يسبق تاريخ الانتهاء تاريخ البداية.',
+  'Only this transaction will be removed. Other transactions in this series stay unchanged.':
+      'ستُحذف هذه المعاملة فقط. لن تتأثر بقية المعاملات المرتبطة.',
+  'Delete recurring transaction?': 'حذف المعاملة الأصلية المتكررة؟',
+  'Choose whether to remove the whole series or keep past transactions.':
+      'اختر حذف جميع المعاملات المرتبطة أو الاحتفاظ بالمعاملات السابقة.',
+  'Stop and delete future transactions':
+      'إيقاف التكرار وحذف المعاملات المستقبلية',
+  'Delete all transactions in this series': 'حذف جميع المعاملات المرتبطة',
+  'Recurring transaction deleted': 'تم حذف المعاملة المتكررة',
+  'All dates': 'جميع التواريخ',
+  'All time': 'كل الفترات',
+  'NET CASH FLOW': 'صافي التدفق النقدي',
+  'Complete financial history': 'السجل المالي الكامل',
+  'Total transactions': 'إجمالي المعاملات',
+  'Your finances at a glance': 'ملخص أموالك',
+  'Across {0} days of recorded history': 'خلال {0} أيام من السجل المالي',
+  'No transactions yet.': 'لا توجد معاملات بعد.',
+  'Choose a month to review budget alerts.':
+      'اختر شهرًا لمراجعة تنبيهات الميزانية.',
+  'Choose a month for monthly insights and budget comparisons.':
+      'اختر شهرًا للاطلاع على الرؤى الشهرية ومقارنات الميزانية.',
+  'Choose a month to view its budget.': 'اختر شهرًا لعرض ميزانيته.',
+  'Share of all expenses': 'النسبة من إجمالي المصروفات',
+  'Share of selected month’s expenses': 'النسبة من مصروفات الشهر المحدد',
+  'Cumulative spending across all dates: {0} {1}':
+      'الإنفاق التراكمي لجميع التواريخ: {0} {1}',
+  'Spending': 'الإنفاق',
+  'Across your complete financial history': 'خلال سجلك المالي الكامل',
+  'Choose a month to view monthly budgets.':
+      'اختر شهرًا لعرض الميزانيات الشهرية.',
+  'No expenses in this category.': 'لا توجد مصروفات في هذه الفئة.',
+  'Scheduled preview': 'معاينة مجدولة',
+  '{0} scheduled previews': '{0} معاينات مجدولة',
+  'Upcoming': 'قادمة',
+  'Scheduled previews: {0} – {1}': 'المعاملات المجدولة: {0} – {1}',
+  'Repeat: {0}': 'التكرار: {0}',
+  'Yearly': 'سنوي',
+  'Adds an entry on the same date each year, or the last day of February in a non-leap year. Missed entries are added when you next open the app.':
+      'تُضاف معاملة في التاريخ نفسه سنوياً، أو في آخر يوم من فبراير إذا لم تكن السنة كبيسة. تُضاف المعاملات المستحقة عند فتح التطبيق.',
+  'A concise summary of your income, spending, budgets and recurring expenses.':
+      'ملخص موجز لدخلك وإنفاقك وميزانيتك ومصروفاتك المتكررة.',
+  'Analysis currency: {0}': 'عملة التحليل: {0}',
+  'Your financial data or language changed. These insights reflect the earlier analysis.':
+      'تغيّرت بياناتك المالية أو اللغة. هذه الرؤى مبنية على التحليل السابق.',
   'Search country': 'بلد البحث',
   'Results language': 'لغة النتائج',
   'Maximum price (optional)': 'الحد الأقصى للسعر (اختياري)',
@@ -612,9 +736,8 @@ const arabic = <String, String>{
   'Remaining budget': 'الميزانية المتبقية',
   'Over budget': 'تجاوز الميزانية',
   'No budget set for this month.': 'لم تُحدد ميزانية لهذا الشهر.',
-  'Set a monthly budget in Analysis to track your spending limits.':
-      'حدد ميزانية شهرية في التحليل لمتابعة حدود إنفاقك.',
-  'Manage budget': 'إدارة الميزانية',
+  'View your recorded spending in Analysis.': 'اعرض إنفاقك المسجل في التحليل.',
+  'View analysis': 'عرض التحليل',
   'Notifications': 'الإشعارات',
   'Financial alerts': 'التنبيهات المالية',
   'TOTAL RECORDED BALANCE': 'إجمالي الرصيد المسجل',
@@ -656,6 +779,10 @@ const arabic = <String, String>{
   'Generate AI insights': 'إنشاء رؤى ذكية',
   'Try again': 'حاول مجدداً',
   'Refresh insights': 'تحديث الرؤى',
+  'Clear insights': 'مسح الرؤى',
+  'Insights for {0}': 'رؤى شهر {0}',
+  'Your expenses, month, or language changed. These insights reflect the earlier analysis.':
+      'تغيّرت مصروفاتك أو الشهر أو اللغة. هذه الرؤى مبنية على التحليل السابق.',
   'Generating insights…': 'جارٍ إنشاء الرؤى…',
   'Analyzing your expenses…': 'جارٍ تحليل مصروفاتك…',
   'Get practical ways to reduce spending based on your recorded expenses.':
@@ -825,15 +952,14 @@ const arabic = <String, String>{
   'No overall budget set': 'لم تُحدد ميزانية إجمالية',
   '{0} BUDGET': 'ميزانية {0}',
   'of {0} · {1} remaining': 'من {0} · المتبقي {1}',
-  'Edit monthly budget →': 'تعديل الميزانية الشهرية',
   'You have reached your monthly budget.': 'وصلت إلى حد الميزانية الشهرية.',
   'You have used {0}% of your monthly budget.':
       'استخدمت {0}٪ من الميزانية الشهرية.',
-  'Use previous month’s budgets': 'استخدام ميزانيات الشهر السابق',
-  'No missing budgets to copy from the previous month.':
-      'لا توجد ميزانيات ناقصة لنسخها من الشهر السابق.',
-  'Copied {0} budgets. Existing limits kept.':
-      'تم نسخ {0} ميزانيات مع إبقاء الحدود الحالية.',
+  'Use previous month’s category budgets': 'استخدام ميزانيات فئات الشهر السابق',
+  'No missing category budgets to copy from the previous month.':
+      'لا توجد ميزانيات فئات ناقصة لنسخها من الشهر السابق.',
+  'Copied {0} category budgets. Existing limits kept.':
+      'تم نسخ {0} ميزانيات فئات مع إبقاء الحدود الحالية.',
   '{0} budget': 'ميزانية {0}',
   'Edit {0} budget': 'تعديل ميزانية {0}',
   'Not set': 'غير محددة',

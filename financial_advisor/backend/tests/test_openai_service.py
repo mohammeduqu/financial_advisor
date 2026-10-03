@@ -194,6 +194,16 @@ class OpenAIServiceTests(unittest.TestCase):
         self.response.iter_content.return_value = [b"x" * MAX_RESPONSE_BYTES, b"x"]
         self.assert_error("analysis_failed", 502)
 
+    def test_slow_response_is_rejected_after_analysis_deadline(self):
+        # requests' read timeout measures inactivity between reads, not the
+        # elapsed time of an upstream response that keeps trickling bytes.
+        encoded = json.dumps(completed()).encode()
+        self.response.iter_content.return_value = [encoded[:10], encoded[10:]]
+        with patch("services.openai_service.time.monotonic", side_effect=[0, 60, 121]):
+            self.assert_error("analysis_timeout", 504)
+        self.session.post.assert_called_once()
+        self.session.post.return_value.__exit__.assert_called_once()
+
     def test_chunked_json_response_is_read(self):
         encoded = json.dumps(completed('{"merchant_name":"متجر"}')).encode()
         self.response.iter_content.return_value = [encoded[:10], b"", encoded[10:]]

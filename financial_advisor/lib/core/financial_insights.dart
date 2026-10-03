@@ -48,11 +48,12 @@ DateTime _day(DateTime value) => DateTime(value.year, value.month, value.day);
 String _dateText(DateTime value) =>
     '${monthKey(value)}-${value.day.toString().padLeft(2, '0')}';
 
-/// A minimal, immutable snapshot of posted expenses, without receipt or account data.
+/// A minimal snapshot of financial records, without receipts or personal details.
 class FinancialInsightsRequest {
   final String month, asOf, currency, language;
   final DateTime periodStart, periodEnd, comparisonEnd;
-  final List<Map<String, Object>> expenses, budgets;
+  final List<Map<String, Object>> expenses, budgets, income;
+  final List<Map<String, Object?>> recurring;
   final int expenseCount, totalExpenseCents;
   final int comparisonExpenseCount, comparisonTotalExpenseCents;
   final bool isFutureMonth;
@@ -67,6 +68,8 @@ class FinancialInsightsRequest {
     required this.comparisonEnd,
     required this.expenses,
     required this.budgets,
+    required this.income,
+    required this.recurring,
     required this.expenseCount,
     required this.totalExpenseCents,
     required this.comparisonExpenseCount,
@@ -104,12 +107,13 @@ class FinancialInsightsRequest {
     }
 
     final rows = <Map<String, Object>>[];
+    final incomeRows = <Map<String, Object>>[];
     var expenseCount = 0, total = 0, comparisonCount = 0, comparisonTotal = 0;
     if (!future) {
       // Recurring schedules are deliberately excluded until they post to entries.
       for (final entry in store.entries) {
         final date = _day(entry.date);
-        if (entry.income ||
+        if (entry.isProjected ||
             date.isBefore(previous) ||
             date.isAfter(end) ||
             date.isAfter(today)) {
@@ -117,9 +121,21 @@ class FinancialInsightsRequest {
         }
         if (entry.cents <= 0 ||
             entry.cents >= 100000000000 ||
-            !categories.contains(entry.category) ||
+            (!entry.income && !categories.contains(entry.category)) ||
             entry.merchant.trim().isEmpty) {
           throw const FinancialInsightsException('invalid_insights_request');
+        }
+        if (incomeRows.length + rows.length >= financialInsightsMaxExpenses) {
+          throw const FinancialInsightsException('insights_too_large');
+        }
+        if (entry.income) {
+          incomeRows.add(
+            Map<String, Object>.unmodifiable({
+              'date': _dateText(date),
+              'amount_cents': entry.cents,
+            }),
+          );
+          continue;
         }
         rows.add(
           Map<String, Object>.unmodifiable({
@@ -149,6 +165,31 @@ class FinancialInsightsRequest {
     }
     // A changed list order alone does not invalidate an otherwise identical result.
     rows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+    incomeRows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+    final recurringRows = <Map<String, Object?>>[];
+    for (final plan in store.recurringTransactions) {
+      if (plan.income ||
+          !plan.active ||
+          (plan.endDate != null && plan.nextDate.isAfter(plan.endDate!)) ||
+          plan.startDate.isAfter(end) ||
+          (plan.endDate != null && plan.endDate!.isBefore(start))) {
+        continue;
+      }
+      recurringRows.add(
+        Map<String, Object?>.unmodifiable({
+          'category': plan.category,
+          'amount_cents': plan.cents,
+          'frequency': plan.frequency.name,
+          'interval': plan.interval,
+          'start_date': _dateText(plan.startDate),
+          'end_date': plan.endDate == null ? null : _dateText(plan.endDate!),
+        }),
+      );
+    }
+    if (recurringRows.length > financialInsightsMaxExpenses) {
+      throw const FinancialInsightsException('insights_too_large');
+    }
+    recurringRows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
     final budgetRows = <Map<String, Object>>[];
     final monthBudgets = store.budgets[monthKey(start)] ?? const {};
     for (final category in ['Overall', ...categories]) {
@@ -174,6 +215,8 @@ class FinancialInsightsRequest {
       comparisonEnd: comparisonEnd,
       expenses: List.unmodifiable(rows),
       budgets: List.unmodifiable(budgetRows),
+      income: List.unmodifiable(incomeRows),
+      recurring: List.unmodifiable(recurringRows),
       expenseCount: expenseCount,
       totalExpenseCents: total,
       comparisonExpenseCount: comparisonCount,
@@ -196,6 +239,8 @@ class FinancialInsightsRequest {
     'language': language,
     'expenses': expenses,
     'budgets': budgets,
+    'income': income,
+    'recurring': recurring,
   });
 
   String get fingerprint => jsonEncode(toJson());
@@ -279,8 +324,12 @@ class FinancialInsightsResult {
         _dateText(generatedAt) != generated.substring(0, 10)) {
       invalid();
     }
-    final rawInsights = json['insights'];
-    if (rawInsights is! List || rawInsights.isEmpty || rawInsights.length > 5) {
+    // Older servers include separate cards. Accept them for compatibility;
+    // the interface displays only the summary on either server version.
+    final rawInsights = json['insights'] ?? const [];
+    if (rawInsights is! List ||
+        (json.containsKey('insights') && rawInsights.isEmpty) ||
+        rawInsights.length > 5) {
       invalid();
     }
     final insights = <FinancialInsight>[];
@@ -324,7 +373,7 @@ class FinancialInsightsResult {
       month: request.month,
       currency: request.currency,
       language: request.language,
-      summary: text(json['summary'], 600),
+      summary: text(json['summary'], 1200),
       generatedAt: generatedAt,
       insights: List.unmodifiable(insights),
       basedOn: FinancialInsightsBasis(

@@ -332,11 +332,12 @@ void main() {
     expect(calls, 0);
   });
 
-  test('unreadable saved search settings restore Saudi defaults', () async {
+  test('invalid or removed search settings restore Saudi defaults', () async {
     final prefs = await SharedPreferences.getInstance();
     for (final value in [
       'not-json',
       '[]',
+      '{"gl":"kw","hl":"ar"}',
       '{"gl":"invalid","location":"","max_price":-1}',
       '{"gl":"sa","location":"Saudi Arabia","max_price":12.345}',
       '{"gl":"sa","location":"Saudi Arabia","max_price":1000000000}',
@@ -469,6 +470,15 @@ void main() {
       );
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
+      expect(requests, isEmpty);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('search-product')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('search-product')));
+      await tester.pumpAndSettle();
 
       expect(requests, hasLength(1));
       expect(jsonDecode(requests.single.body), {
@@ -485,7 +495,70 @@ void main() {
   );
 
   testWidgets(
-    'changing filters does not search until submitted and choices survive reopening',
+    'keyboard actions and focus changes never search; only the button does',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final store = FinanceStore(await SharedPreferences.getInstance());
+      final requests = <http.Request>[];
+      await tester.pumpWidget(
+        productForm(store, (request) async {
+          requests.add(request);
+          return http.Response(jsonEncode(directSearchResponse()), 200);
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      for (final entry
+          in {
+            'shopping-text-input': 'Tea',
+            'shopping-max-price': '250',
+          }.entries) {
+        final field = find.byKey(Key(entry.key));
+        await tester.ensureVisible(field);
+        await tester.enterText(field, entry.value);
+        await tester.pumpAndSettle();
+        expect(requests, isEmpty, reason: 'Typing must not search.');
+        for (final action in [TextInputAction.done, TextInputAction.search]) {
+          await tester.showKeyboard(field);
+          await tester.testTextInput.receiveAction(action);
+          await tester.pumpAndSettle();
+          expect(
+            requests,
+            isEmpty,
+            reason: '${entry.key} keyboard $action must not search.',
+          );
+        }
+      }
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(requests, isEmpty);
+      expect(store.prefs.getString(ProductSearchOptions.preferenceKey), isNull);
+
+      await tester.ensureVisible(find.byKey(const Key('search-product')));
+      await tester.tap(find.byKey(const Key('search-product')));
+      await tester.pumpAndSettle();
+      expect(requests, hasLength(1));
+      expect(requests.single.url.path, '/api/recommendations/search');
+      expect(jsonDecode(requests.single.body), {
+        'q': 'Tea',
+        'gl': 'sa',
+        'location': 'Saudi Arabia',
+        'google_domain': 'google.com.sa',
+        'hl': 'ar',
+        'max_price': 250,
+      });
+      expect(find.byType(RecommendationResultsPage), findsOneWidget);
+      expect(RecommendationHistory(store.prefs).read(), hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'changing filters does not search until button tap and choices survive reopening',
     (tester) async {
       final store = FinanceStore(await SharedPreferences.getInstance());
       final requests = <http.Request>[];
@@ -582,14 +655,14 @@ void main() {
 
   for (final language in ['en', 'ar']) {
     testWidgets(
-      '$language saved Kuwait choice is explained without a paid search',
+      '$language saved Egypt choice is explained without a paid search',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         final prefs = await SharedPreferences.getInstance();
-        await const ProductSearchOptions(countryCode: 'kw').save(prefs);
+        await const ProductSearchOptions(countryCode: 'eg').save(prefs);
         final requests = <http.Request>[];
         await tester.pumpWidget(
           productForm(FinanceStore(prefs), (request) async {
@@ -598,7 +671,7 @@ void main() {
           }, language: language),
         );
         await tester.pumpAndSettle();
-        expect(selectedValue(tester, 'shopping-country'), 'kw');
+        expect(selectedValue(tester, 'shopping-country'), 'eg');
         expect(
           find.text(
             language == 'ar'

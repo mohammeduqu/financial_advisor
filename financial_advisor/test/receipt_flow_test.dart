@@ -11,7 +11,12 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final store = FinanceStore(await SharedPreferences.getInstance());
-    await store.start(userName: 'Alex', selectedCurrency: 'SAR', useDemo: true);
+    await store.start(
+      userName: 'Alex',
+      selectedCurrency: 'SAR',
+      acceptedLegal: true,
+      useDemo: true,
+    );
     await tester.pumpWidget(TadbeerApp(store: store));
     await tester.pumpAndSettle();
     final context = tester.element(find.byType(AppShell));

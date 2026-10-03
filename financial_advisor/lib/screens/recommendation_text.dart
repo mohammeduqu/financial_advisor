@@ -208,7 +208,6 @@ class _RecommendationTextPageState extends State<RecommendationTextPage> {
                       widget.shoppingList
                           ? TextInputAction.newline
                           : TextInputAction.done,
-                  onSubmitted: widget.shoppingList ? null : (_) => review(),
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
                     labelText: tr(
@@ -284,8 +283,7 @@ class _RecommendationTextPageState extends State<RecommendationTextPage> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => review(),
+                    textInputAction: TextInputAction.done,
                     decoration: InputDecoration(
                       labelText: tr(context, 'Maximum price (optional)'),
                     ),

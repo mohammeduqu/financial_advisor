@@ -15,6 +15,7 @@ Future<FinanceStore> createStore(WidgetTester tester) async {
   await store.start(
     userName: 'Invoice tester',
     selectedCurrency: 'SAR',
+    acceptedLegal: true,
     useDemo: false,
   );
   await store.setLanguage('en');
@@ -49,7 +50,7 @@ Future<void> openScanner(WidgetTester tester) async {
 
 void main() {
   testWidgets(
-    'a saved older invoice opens its month in Transactions and clears stale filters',
+    'a saved older invoice keeps all dates in Transactions and clears stale filters',
     (tester) async {
       final store = await createStore(tester);
       final now = DateTime.now();
@@ -132,12 +133,12 @@ void main() {
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         1,
       );
+      expect(tester.widget<TransactionsPage>(transactions).month, isNull);
       expect(
-        tester.widget<TransactionsPage>(transactions).month,
-        DateTime(invoiceDate.year, invoiceDate.month),
-      );
-      expect(
-        find.text(DateFormat.yMMMM('en').format(invoiceDate)),
+        find.descendant(
+          of: find.byKey(const Key('choose-month')),
+          matching: find.text('All dates'),
+        ),
         findsOneWidget,
       );
       final search = tester.widget<EditableText>(
@@ -202,6 +203,12 @@ void main() {
   ) async {
     final store = await createStore(tester);
     await tester.pumpWidget(TadbeerApp(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('choose-month')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('choose-month-${DateTime.now().month}')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Previous month'));
     await tester.pumpAndSettle();

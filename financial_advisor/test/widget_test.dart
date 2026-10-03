@@ -19,6 +19,32 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(TadbeerApp(store: store));
     await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('welcome-name')),
+        matching: find.byType(TextFormField),
+      ),
+      'Alex',
+    );
+    final acceptance = find.byKey(const Key('legal-acceptance-checkbox'));
+    await tester.scrollUntilVisible(
+      acceptance,
+      200,
+      scrollable:
+          find
+              .descendant(
+                of: find.byType(WelcomePage),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(acceptance);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CheckboxListTile>(acceptance).value, isFalse);
+    await tester.tap(acceptance);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CheckboxListTile>(acceptance).value, isTrue);
     await tester.scrollUntilVisible(
       find.text('Get started'),
       200,
@@ -31,12 +57,16 @@ void main() {
               .first,
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Get started'));
+    await tester.pumpAndSettle();
     expect(find.text('Explore with sample data'), findsNothing);
     expect(find.byType(LanguageSelector), findsNothing);
     expect(find.textContaining('Data stays on this device'), findsNothing);
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
     expect(store.onboarded, isTrue);
+    expect(store.hasAcceptedCurrentLegal, isTrue);
+    expect(store.name, 'Alex');
     expect(store.entries, isEmpty);
     expect(store.demo, isFalse);
     expect(find.textContaining('Hello,'), findsOneWidget);
@@ -47,7 +77,12 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final store = FinanceStore(await SharedPreferences.getInstance());
-    await store.start(userName: 'Alex', selectedCurrency: 'SAR', useDemo: true);
+    await store.start(
+      userName: 'Alex',
+      selectedCurrency: 'SAR',
+      acceptedLegal: true,
+      useDemo: true,
+    );
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -74,13 +109,14 @@ void main() {
   });
 
   testWidgets(
-    'home actions save income and expenses to the monthly cash flow',
+    'home actions save income and expenses to the complete cash flow',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       final store = FinanceStore(await SharedPreferences.getInstance());
       await store.start(
         userName: 'Alex',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
         useDemo: false,
       );
       tester.view.physicalSize = const Size(390, 844);
@@ -126,7 +162,7 @@ void main() {
       expect(store.incomeFor(month), 500000);
       expect(store.expensesFor(month), 15000);
       await tester.scrollUntilVisible(
-        find.text('MONTHLY CASH FLOW'),
+        find.text('NET CASH FLOW'),
         -300,
         scrollable:
             find
@@ -145,14 +181,51 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Salary'), findsOneWidget);
+      final transactionScroll =
+          find
+              .descendant(
+                of: find.byType(TransactionsPage),
+                matching: find.byType(Scrollable),
+              )
+              .first;
+      await tester.scrollUntilVisible(
+        find.text('Groceries'),
+        200,
+        scrollable: transactionScroll,
+      );
       expect(find.text('Groceries'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Salary'),
+        150,
+        scrollable: transactionScroll,
+      );
+      expect(find.text('Salary'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.widgetWithText(ChoiceChip, 'Income'),
+        -150,
+        scrollable: transactionScroll,
+      );
       await tester.tap(find.widgetWithText(ChoiceChip, 'Income'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Salary'),
+        200,
+        scrollable: transactionScroll,
+      );
       expect(find.text('Salary'), findsOneWidget);
       expect(find.text('Groceries'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.widgetWithText(ChoiceChip, 'Expenses'),
+        -150,
+        scrollable: transactionScroll,
+      );
       await tester.tap(find.widgetWithText(ChoiceChip, 'Expenses'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Groceries'),
+        200,
+        scrollable: transactionScroll,
+      );
       expect(find.text('Salary'), findsNothing);
       expect(find.text('Groceries'), findsOneWidget);
 
@@ -172,6 +245,7 @@ void main() {
       await store.start(
         userName: 'Alex',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
         useDemo: false,
       );
       tester.view.physicalSize = const Size(390, 844);
@@ -181,6 +255,12 @@ void main() {
       await tester.pumpWidget(TadbeerApp(store: store));
       await tester.pumpAndSettle();
       final manageBudget = find.byKey(const Key('home-manage-budget'));
+      await tester.tap(find.byKey(const Key('choose-month')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('choose-month-${DateTime.now().month}')),
+      );
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         manageBudget,
         500,

@@ -58,6 +58,7 @@ void main() {
       await store.start(
         userName: 'Alex',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
         useDemo: true,
       );
       tester.binding.platformDispatcher.localesTestValue = [const Locale('en')];
@@ -71,7 +72,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const Key('language-selector')));
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('language-selector')),
+        200,
+        scrollable:
+            find
+                .descendant(
+                  of: find.byType(SettingsPage),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+      );
       await tester.tap(find.byKey(const Key('language-selector')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('language-option-ar')));
@@ -87,7 +98,17 @@ void main() {
         Directionality.of(tester.element(find.byType(NavigationBar))),
         TextDirection.rtl,
       );
-      await tester.ensureVisible(find.byKey(const Key('language-selector')));
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('language-selector')),
+        200,
+        scrollable:
+            find
+                .descendant(
+                  of: find.byType(SettingsPage),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+      );
       await tester.tap(find.byKey(const Key('language-selector')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('language-option-auto')));
@@ -109,6 +130,8 @@ void main() {
       await store.start(
         userName: 'أحمد',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
+        legalLanguage: 'ar',
         useDemo: false,
       );
       tester.binding.platformDispatcher.localesTestValue = [const Locale('ar')];
@@ -150,6 +173,8 @@ void main() {
       await store.start(
         userName: 'أحمد',
         selectedCurrency: 'SAR',
+        acceptedLegal: true,
+        legalLanguage: 'ar',
         useDemo: true,
       );
       tester.binding.platformDispatcher.localesTestValue = [
@@ -205,6 +230,33 @@ void main() {
       addTearDown(tester.binding.platformDispatcher.clearLocalesTestValue);
       await tester.pumpWidget(TadbeerApp(store: store));
       await tester.pumpAndSettle();
+      expect(find.text('عملتك'), findsOneWidget);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const Key('welcome-name')),
+          matching: find.byType(TextFormField),
+        ),
+        'أحمد',
+      );
+      final acceptance = find.byKey(const Key('legal-acceptance-checkbox'));
+      await tester.scrollUntilVisible(
+        acceptance,
+        200,
+        scrollable:
+            find
+                .descendant(
+                  of: find.byType(WelcomePage),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(acceptance);
+      await tester.pumpAndSettle();
+      expect(tester.widget<CheckboxListTile>(acceptance).value, isFalse);
+      await tester.tap(acceptance);
+      await tester.pumpAndSettle();
+      expect(tester.widget<CheckboxListTile>(acceptance).value, isTrue);
       await tester.scrollUntilVisible(
         find.text('ابدأ الآن'),
         200,
@@ -216,14 +268,21 @@ void main() {
                 )
                 .first,
       );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('ابدأ الآن'));
+      await tester.pumpAndSettle();
       expect(find.text('ابدأ الآن'), findsOneWidget);
       expect(find.byType(LanguageSelector), findsNothing);
-      expect(find.text('عملتك'), findsOneWidget);
       final context = tester.element(find.byType(WelcomePage));
       expect(
         MaterialLocalizations.of(context).cancelButtonLabel,
         isNot('Cancel'),
       );
+      await tester.tap(find.text('ابدأ الآن'));
+      await tester.pumpAndSettle();
+      expect(store.onboarded, isTrue);
+      expect(store.hasAcceptedCurrentLegal, isTrue);
+      expect(find.text('مرحباً، أحمد'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

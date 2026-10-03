@@ -2,16 +2,16 @@ import 'package:flutter/foundation.dart';
 
 enum FlaskTarget { local, deployed }
 
-// Change this to FlaskTarget.deployed to use your server, then restart/rebuild
+// Choose FlaskTarget.local or FlaskTarget.deployed, then restart/rebuild
 // Flutter. OpenAI's key and model are configured separately in backend/.env.
 const activeFlaskTarget = FlaskTarget.local;
 
 // Use Flask's origin only, without an /api path or the Flutter preview port.
 // For a physical phone, set localFlaskUrl to your computer's LAN IP and port.
 const localFlaskUrl = 'http://127.0.0.1:5000';
-const deployedFlaskUrl = 'http://31.97.178.214:5001';
+const deployedFlaskUrl = 'http://31.97.178.214:8001';
 
-/// Every invoice and shopping request uses this configuration. Old saved server
+/// Invoice, shopping and insights requests use this configuration. Old saved server
 /// preferences are intentionally ignored so changing this file always takes effect.
 String flaskApiUrl({
   FlaskTarget target = activeFlaskTarget,

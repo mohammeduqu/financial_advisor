@@ -7,8 +7,14 @@ import 'transactions.dart';
 
 class PlanPage extends StatefulWidget {
   final FinanceStore store;
-  final DateTime month;
-  const PlanPage({super.key, required this.store, required this.month});
+  final DateTime? month;
+  final VoidCallback? chooseMonth;
+  const PlanPage({
+    super.key,
+    required this.store,
+    this.month,
+    this.chooseMonth,
+  });
   @override
   State<PlanPage> createState() => _PlanPageState();
 }
@@ -16,16 +22,6 @@ class PlanPage extends StatefulWidget {
 class _PlanPageState extends State<PlanPage> {
   bool goals = false;
   FinanceStore get store => widget.store;
-  Future<void> budget(String category) async {
-    final value = await amountDialog(
-      context,
-      '$category budget',
-      store.currency,
-      initial: store.budgetFor(widget.month, category),
-      allowRemove: store.budgetFor(widget.month, category) > 0,
-    );
-    if (value != null) await store.setBudget(widget.month, category, value);
-  }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -34,10 +30,14 @@ class _PlanPageState extends State<PlanPage> {
   );
 
   Widget _buildContent(BuildContext context) {
-    final spent = store.expensesFor(widget.month),
-        limit = store.budgetFor(widget.month);
+    final month = widget.month;
+    final periodEntries = store.forPeriod(month);
+    final spent = periodEntries
+        .where((entry) => !entry.income)
+        .fold(0, (total, entry) => total + entry.cents);
+    final limit = month == null ? 0 : store.budgetFor(month);
     final expensesByCategory = <String, List<Entry>>{};
-    for (final entry in store.forMonth(widget.month)) {
+    for (final entry in periodEntries) {
       if (!entry.income) {
         expensesByCategory.putIfAbsent(entry.category, () => []).add(entry);
       }
@@ -47,13 +47,13 @@ class _PlanPageState extends State<PlanPage> {
       children: [
         const PageHeading('Small steps. Real progress.', 'Analysis & planning'),
         SegmentedButton<bool>(
-          segments: const [
+          segments: [
             ButtonSegment(
               value: false,
-              label: AppText('Budgets'),
-              icon: Icon(Icons.pie_chart_outline),
+              label: AppText(month == null ? 'Spending' : 'Budgets'),
+              icon: const Icon(Icons.pie_chart_outline),
             ),
-            ButtonSegment(
+            const ButtonSegment(
               value: true,
               label: AppText('Goals'),
               icon: Icon(Icons.flag_outlined),
@@ -70,7 +70,9 @@ class _PlanPageState extends State<PlanPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppText(
-                  '${DateFormat.MMMM(languageOf(context)).format(widget.month).toUpperCase()} BUDGET',
+                  month == null
+                      ? 'Total expenses'
+                      : '${DateFormat.MMMM(languageOf(context)).format(month).toUpperCase()} BUDGET',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 10,
@@ -88,25 +90,23 @@ class _PlanPageState extends State<PlanPage> {
                 ),
                 const SizedBox(height: 6),
                 AppText(
-                  limit == 0
+                  month == null
+                      ? 'Across your complete financial history'
+                      : limit == 0
                       ? 'No overall budget set'
-                      : 'of ${money(limit)} · ${money(limit - spent)} remaining',
+                      : 'of ${store.currency} ${money(limit)} · ${store.currency} ${money(limit - spent)} remaining',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
-                const SizedBox(height: 20),
-                LinearProgressIndicator(
-                  value: limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0,
-                  backgroundColor: Colors.white12,
-                  color: const Color(0xFF91B7FF),
-                  minHeight: 7,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                const SizedBox(height: 14),
-                TextButton(
-                  onPressed: () => budget('Overall'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white),
-                  child: const AppText('Edit monthly budget →'),
-                ),
+                if (month != null) ...[
+                  const SizedBox(height: 20),
+                  LinearProgressIndicator(
+                    value: limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0,
+                    backgroundColor: Colors.white12,
+                    color: const Color(0xFF91B7FF),
+                    minHeight: 7,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ],
               ],
             ),
           ),
@@ -123,22 +123,40 @@ class _PlanPageState extends State<PlanPage> {
             ),
           ],
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.content_copy_outlined, size: 18),
-            label: const AppText('Use previous month’s budgets'),
-            onPressed: () async {
-              final count = await store.copyPreviousBudgets(widget.month);
-              if (!context.mounted) return;
-              toast(
-                context,
-                store.error ??
-                    (count == 0
-                        ? 'No missing budgets to copy from the previous month.'
-                        : 'Copied $count budgets. Existing limits kept.'),
-              );
-            },
+          if (month != null)
+            OutlinedButton.icon(
+              icon: const Icon(Icons.content_copy_outlined, size: 18),
+              label: const AppText('Use previous month’s category budgets'),
+              onPressed: () async {
+                final count = await store.copyPreviousBudgets(month);
+                if (!context.mounted) return;
+                toast(
+                  context,
+                  store.error ??
+                      (count == 0
+                          ? 'No missing category budgets to copy from the previous month.'
+                          : 'Copied $count category budgets. Existing limits kept.'),
+                );
+              },
+            )
+          else ...[
+            const AppText(
+              'Choose a month to view monthly budgets.',
+              style: TextStyle(fontSize: 12, color: muted, height: 1.5),
+            ),
+            if (widget.chooseMonth != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('planning-choose-month'),
+                onPressed: widget.chooseMonth,
+                icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                label: const AppText('Choose month'),
+              ),
+            ],
+          ],
+          SectionHeading(
+            month == null ? 'Spending by category' : 'Category budgets',
           ),
-          const SectionHeading('Category budgets'),
           const AppText(
             'Tap a category to view its expenses. Tap an expense to edit it.',
             style: TextStyle(fontSize: 12, color: muted, height: 1.5),
@@ -150,14 +168,14 @@ class _PlanPageState extends State<PlanPage> {
               0,
               (total, entry) => total + entry.cents,
             );
-            final cap = store.budgetFor(widget.month, c);
+            final cap = month == null ? 0 : store.budgetFor(month, c);
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Surface(
                 padding: EdgeInsets.zero,
                 child: ExpansionTile(
                   key: PageStorageKey(
-                    'category-budget-${monthKey(widget.month)}-$c',
+                    'category-budget-${month == null ? 'all' : monthKey(month)}-$c',
                   ),
                   tilePadding: const EdgeInsets.all(16),
                   childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
@@ -179,7 +197,9 @@ class _PlanPageState extends State<PlanPage> {
                     children: [
                       const SizedBox(height: 4),
                       AppText(
-                        '${money(used)} / ${cap > 0 ? money(cap) : 'not set'}',
+                        month == null
+                            ? '${store.currency} ${money(used)}'
+                            : '${store.currency} ${money(used)} / ${cap > 0 ? '${store.currency} ${money(cap)}' : tr(context, 'not set')}',
                         style: const TextStyle(fontSize: 11, color: muted),
                       ),
                       const SizedBox(height: 4),
@@ -206,11 +226,13 @@ class _PlanPageState extends State<PlanPage> {
                     const Divider(height: 1, color: line),
                     const SizedBox(height: 12),
                     if (expenses.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(4, 0, 4, 16),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
                         child: AppText(
-                          'No expenses in this category this month.',
-                          style: TextStyle(fontSize: 12, color: muted),
+                          month == null
+                              ? 'No expenses in this category.'
+                              : 'No expenses in this category this month.',
+                          style: const TextStyle(fontSize: 12, color: muted),
                         ),
                       ),
                     for (final expense in expenses)
@@ -224,10 +246,11 @@ class _PlanPageState extends State<PlanPage> {
               ),
             );
           }),
-          const AppText(
-            'Category limits sit within the overall budget; they are not added to it.',
-            style: TextStyle(fontSize: 11, color: muted),
-          ),
+          if (month != null)
+            const AppText(
+              'Category limits sit within the overall budget; they are not added to it.',
+              style: TextStyle(fontSize: 11, color: muted),
+            ),
         ] else ...[
           if (store.goals.isEmpty)
             const EmptyState(
@@ -288,7 +311,7 @@ class _PlanPageState extends State<PlanPage> {
                       ),
                       const SizedBox(height: 6),
                       AppText(
-                        'of ${money(g.target)} · ${(g.saved / g.target * 100).round()}%',
+                        'of ${store.currency} ${money(g.target)} · ${(g.saved / g.target * 100).round()}%',
                         style: TextStyle(
                           fontSize: 12,
                           color:
@@ -329,68 +352,6 @@ class _PlanPageState extends State<PlanPage> {
   }
 }
 
-Future<int?> amountDialog(
-  BuildContext context,
-  String title,
-  String currency, {
-  int initial = 0,
-  bool allowRemove = false,
-}) async {
-  final controller = TextEditingController(
-    text: initial > 0 ? (initial / 100).toStringAsFixed(2) : '',
-  );
-  final form = GlobalKey<FormState>();
-  final result = await showDialog<int>(
-    context: context,
-    builder:
-        (c) => AlertDialog(
-          title: AppText(title),
-          content: Form(
-            key: form,
-            child: TextFormField(
-              autofocus: true,
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: InputDecoration(
-                labelText: tr(context, 'Amount ($currency)'),
-              ),
-              validator:
-                  (v) =>
-                      parseMoney(v ?? '') == null
-                          ? tr(
-                            context,
-                            'Enter a positive amount (up to 2 decimals)',
-                          )
-                          : null,
-            ),
-          ),
-          actions: [
-            if (allowRemove)
-              TextButton(
-                onPressed: () => Navigator.pop(c, 0),
-                child: const AppText('Remove budget'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: const AppText('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState!.validate()) {
-                  Navigator.pop(c, parseMoney(controller.text));
-                }
-              },
-              child: const AppText('Save'),
-            ),
-          ],
-        ),
-  );
-  controller.dispose();
-  return result;
-}
-
 Future<void> newGoal(BuildContext context, FinanceStore store, {Goal? goal}) =>
     Navigator.push<void>(
       context,
@@ -407,12 +368,14 @@ class GoalEditor extends StatefulWidget {
 
 class _GoalEditorState extends State<GoalEditor> {
   final form = GlobalKey<FormState>();
+  late final String id;
   late final TextEditingController name, amount;
   DateTime? deadline;
   bool busy = false;
   @override
   void initState() {
     super.initState();
+    id = widget.goal?.id ?? newId();
     name = TextEditingController(text: widget.goal?.name ?? '');
     amount = TextEditingController(
       text:
@@ -431,13 +394,13 @@ class _GoalEditorState extends State<GoalEditor> {
   }
 
   Future<void> save() async {
-    if (!form.currentState!.validate()) return;
+    if (busy || !form.currentState!.validate()) return;
     setState(() => busy = true);
     final existing =
-        widget.store.goals.where((g) => g.id == widget.goal?.id).firstOrNull;
+        widget.store.goals.where((g) => g.id == id).firstOrNull;
     await widget.store.saveGoal(
       Goal(
-        id: widget.goal?.id ?? newId(),
+        id: id,
         name: name.text.trim(),
         target: parseMoney(amount.text)!,
         deadline: deadline,
@@ -589,12 +552,14 @@ class ContributionEditor extends StatefulWidget {
 
 class _ContributionEditorState extends State<ContributionEditor> {
   final form = GlobalKey<FormState>();
+  late final String id;
   late final TextEditingController amount;
   late DateTime date;
   bool busy = false;
   @override
   void initState() {
     super.initState();
+    id = widget.contribution?.id ?? newId();
     amount = TextEditingController(
       text:
           widget.contribution == null
@@ -668,12 +633,12 @@ class _ContributionEditorState extends State<ContributionEditor> {
                 busy
                     ? null
                     : () async {
-                      if (!form.currentState!.validate()) return;
+                      if (busy || !form.currentState!.validate()) return;
                       setState(() => busy = true);
                       await widget.store.saveContribution(
                         widget.goalId,
                         Contribution(
-                          widget.contribution?.id ?? newId(),
+                          id,
                           parseMoney(amount.text)!,
                           date,
                         ),
@@ -766,7 +731,7 @@ class GoalDetail extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   AppText(
-                    'Target ${money(current.target)}',
+                    'Target ${store.currency} ${money(current.target)}',
                     style: const TextStyle(color: muted),
                   ),
                   const SizedBox(height: 18),
@@ -819,7 +784,7 @@ class GoalDetail extends StatelessWidget {
             const SectionHeading('Contribution history'),
             if (history.isEmpty)
               const EmptyState(
-                icon: Icons.savings_outlined,
+                icon: Icons.account_balance_wallet_outlined,
                 title: 'Your first step is waiting',
                 body: 'Record a contribution when you set money aside.',
               ),

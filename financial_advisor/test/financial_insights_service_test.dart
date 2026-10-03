@@ -91,73 +91,124 @@ void main() {
     store.entries = [expense('today', now)];
   });
 
-  test('snapshot minimizes data, excludes income and future postings', () {
-    store.name = 'Private account name';
-    store.entries = [
-      expense('old', DateTime(2026, 7, 31)),
-      expense('previous-early', DateTime(2026, 8, 5), cents: 100),
-      expense('previous-late', DateTime(2026, 8, 31), cents: 200),
-      expense('current', DateTime(2026, 9, 1), cents: 300),
-      expense('today', now, cents: 400),
-      expense('future', DateTime(2026, 9, 24)),
-      expense('income', now, income: true),
-    ];
+  test(
+    'snapshot minimizes data and separates income and recurring commitments',
+    () {
+      store.name = 'Private account name';
+      store.entries = [
+        expense('old', DateTime(2026, 7, 31)),
+        expense('previous-early', DateTime(2026, 8, 5), cents: 100),
+        expense('previous-late', DateTime(2026, 8, 31), cents: 200),
+        expense('current', DateTime(2026, 9, 1), cents: 300),
+        expense('today', now, cents: 400),
+        expense('future', DateTime(2026, 9, 24)),
+        expense('income', now, income: true),
+      ];
+      store.recurringTransactions = [
+        RecurringTransaction(
+          id: 'unposted',
+          merchant: 'Unposted recurring purchase',
+          category: 'Food',
+          cents: 900,
+          income: false,
+          startDate: DateTime(2026, 9, 1),
+          frequency: RepeatFrequency.monthly,
+        ),
+      ];
+      store.budgets = {
+        '2026-08': {'Food': 70000},
+        '2026-09': {'Food': 60000, 'Overall': 120000, 'Shopping': 0},
+      };
+      final request = snapshot();
+      final data = request.toJson();
+
+      expect(data.keys.toSet(), {
+        'month',
+        'as_of',
+        'currency',
+        'language',
+        'expenses',
+        'budgets',
+        'income',
+        'recurring',
+      });
+      expect(request.expenses, hasLength(4));
+      expect(request.income, [
+        {'date': '2026-09-23', 'amount_cents': 500},
+      ]);
+      expect(request.recurring, [
+        {
+          'category': 'Food',
+          'amount_cents': 900,
+          'frequency': 'monthly',
+          'interval': 1,
+          'start_date': '2026-09-01',
+          'end_date': null,
+        },
+      ]);
+      expect(request.expenseCount, 2);
+      expect(request.totalExpenseCents, 700);
+      expect(request.comparisonExpenseCount, 1);
+      expect(request.comparisonTotalExpenseCents, 100);
+      expect(request.periodEnd, DateTime(2026, 9, 23));
+      expect(request.comparisonEnd, DateTime(2026, 8, 23));
+      expect(request.budgets, [
+        {'category': 'Overall', 'amount_cents': 120000},
+        {'category': 'Food', 'amount_cents': 60000},
+      ]);
+      for (final row in request.expenses) {
+        expect(row.keys.toSet(), {
+          'date',
+          'category',
+          'amount_cents',
+          'merchant',
+        });
+      }
+      final encoded = jsonEncode(data);
+      for (final privateValue in [
+        'Private account name',
+        'Private note',
+        'Private receipt contents',
+        'Unposted recurring purchase',
+        'recurringId',
+        'invoice',
+      ]) {
+        expect(encoded, isNot(contains(privateValue)));
+      }
+    },
+  );
+
+  test('ended schedule revisions are not counted as current commitments', () {
     store.recurringTransactions = [
       RecurringTransaction(
-        id: 'unposted',
-        merchant: 'Unposted recurring purchase',
+        id: 'old',
+        rootId: 'series',
+        merchant: 'Grocer',
         category: 'Food',
-        cents: 900,
+        cents: 10000,
         income: false,
         startDate: DateTime(2026, 9, 1),
-        frequency: RepeatFrequency.monthly,
+        endDate: DateTime(2026, 9, 15),
+        nextOccurrence: 15,
+        frequency: RepeatFrequency.daily,
+      ),
+      RecurringTransaction(
+        id: 'new',
+        rootId: 'series',
+        merchant: 'Grocer',
+        category: 'Food',
+        cents: 15000,
+        income: false,
+        startDate: DateTime(2026, 9, 16),
+        nextOccurrence: 8,
+        frequency: RepeatFrequency.daily,
       ),
     ];
-    store.budgets = {
-      '2026-08': {'Food': 70000},
-      '2026-09': {'Food': 60000, 'Overall': 120000, 'Shopping': 0},
-    };
     final request = snapshot();
-    final data = request.toJson();
-
-    expect(data.keys.toSet(), {
-      'month',
-      'as_of',
-      'currency',
-      'language',
-      'expenses',
-      'budgets',
-    });
-    expect(request.expenses, hasLength(4));
-    expect(request.expenseCount, 2);
-    expect(request.totalExpenseCents, 700);
-    expect(request.comparisonExpenseCount, 1);
-    expect(request.comparisonTotalExpenseCents, 100);
-    expect(request.periodEnd, DateTime(2026, 9, 23));
-    expect(request.comparisonEnd, DateTime(2026, 8, 23));
-    expect(request.budgets, [
-      {'category': 'Overall', 'amount_cents': 120000},
-      {'category': 'Food', 'amount_cents': 60000},
-    ]);
-    for (final row in request.expenses) {
-      expect(row.keys.toSet(), {
-        'date',
-        'category',
-        'amount_cents',
-        'merchant',
-      });
-    }
-    final encoded = jsonEncode(data);
-    for (final privateValue in [
-      'Private account name',
-      'Private note',
-      'Private receipt contents',
-      'Unposted recurring purchase',
-      'recurringId',
-      'invoice',
-    ]) {
-      expect(encoded, isNot(contains(privateValue)));
-    }
+    expect(request.recurring, hasLength(1));
+    expect(request.recurring.single['amount_cents'], 15000);
+    expect(request.recurring.single['start_date'], '2026-09-16');
+    expect(request.totalExpenseCents, 500);
   });
 
   test(
@@ -285,6 +336,24 @@ void main() {
       expect(result.basedOn.totalExpenseCents, 500);
       expect(result.generatedAt.isUtc, isTrue);
       expect(client.closed, isTrue);
+    },
+  );
+
+  test(
+    'summary-only responses do not require separate recommendation cards',
+    () {
+      final request = snapshot();
+      final body = insightsResponse(request)..remove('insights');
+      body['summary'] =
+          'A concise financial summary with one practical next step.';
+      final result = FinancialInsightsResult.fromJson(body, request: request);
+      expect(result.insights, isEmpty);
+      expect(result.summary, body['summary']);
+      body['summary'] = 'x' * 1201;
+      expect(
+        () => FinancialInsightsResult.fromJson(body, request: request),
+        throwsA(insightError('invalid_insights_response')),
+      );
     },
   );
 

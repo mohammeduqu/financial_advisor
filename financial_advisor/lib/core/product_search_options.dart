@@ -32,12 +32,6 @@ const productSearchCountries = [
     shoppingSupported: false,
   ),
   ProductSearchCountry(
-    'kw',
-    'Kuwait',
-    'google.com.kw',
-    shoppingSupported: false,
-  ),
-  ProductSearchCountry(
     'qa',
     'Qatar',
     'google.com.qa',

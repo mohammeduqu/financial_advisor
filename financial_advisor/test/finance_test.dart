@@ -20,6 +20,78 @@ void main() {
     expect(parseMoney('0'), isNull);
   });
   test(
+    'onboarding accepts exactly 99 graphemes and saves the trimmed name',
+    () async {
+      final name = List.filled(99, '👨‍👩‍👧‍👦').join();
+      await store.start(
+        userName: '  $name  ',
+        selectedCurrency: 'USD',
+        selectedCountry: 'AE',
+        useDemo: false,
+        acceptedLegal: true,
+      );
+      expect(store.name, name);
+      expect(store.onboarded, isTrue);
+      final restored = FinanceStore(store.prefs);
+      await restored.load();
+      expect(restored.name, name);
+      expect(restored.onboarded, isTrue);
+      expect(restored.currency, 'USD');
+      expect(restored.countryCode, 'AE');
+    },
+  );
+  for (final invalid in [
+    ('empty', ''),
+    ('whitespace', ' \t\n '),
+    ('100 characters', List.filled(100, 'A').join()),
+    ('100 graphemes', List.filled(100, '👨‍👩‍👧‍👦').join()),
+  ]) {
+    test(
+      'onboarding rejects ${invalid.$1} without changing state or saved data',
+      () async {
+        await store.saveEntry(
+          Entry(
+            id: 'existing',
+            merchant: 'Existing expense',
+            cents: 1200,
+            date: DateTime(2024, 1, 1),
+            category: 'Food',
+          ),
+        );
+        final saved = store.prefs.getString('numo_v1');
+        final originalEntry = store.entries.single;
+        await expectLater(
+          store.start(
+            userName: invalid.$2,
+            selectedCurrency: 'USD',
+            selectedCountry: 'AE',
+            useDemo: true,
+          ),
+          throwsArgumentError,
+        );
+        expect(store.name, 'Alex');
+        expect(store.currency, 'SAR');
+        expect(store.countryCode, 'SA');
+        expect(store.onboarded, isFalse);
+        expect(store.demo, isFalse);
+        expect(store.entries.single, same(originalEntry));
+        expect(store.goals, isEmpty);
+        expect(store.budgets, isEmpty);
+        expect(store.prefs.getString('numo_v1'), saved);
+      },
+    );
+  }
+  test('existing profiles retain support for a 100-grapheme name', () async {
+    final name = List.filled(100, 'ع').join();
+    await store.updateProfile(userName: name);
+    final restored = FinanceStore(store.prefs);
+    await restored.load();
+    expect(restored.name, name);
+    expect(restored.error, isNull);
+    await restored.persist();
+    expect(restored.error, isNull);
+  });
+  test(
     'receipt parser uses total, not VAT or subtotal and rejects invalid date',
     () {
       final draft = ReceiptDraft.parse(
@@ -111,6 +183,7 @@ void main() {
         userName: 'Test',
         selectedCurrency: 'SAR',
         useDemo: true,
+        acceptedLegal: true,
       );
       await store.setLanguage('ar');
       await store.setBudget(DateTime.now(), 'Overall', 1100000);
@@ -192,7 +265,10 @@ void main() {
 
         await store.persist();
         final migrated = jsonDecode(store.prefs.getString('numo_v1')!) as Map;
-        final expected = Map<String, dynamic>.from(legacy)..remove('saved');
+        final expected =
+            Map<String, dynamic>.from(legacy)
+              ..remove('saved')
+              ..['countryCode'] = 'SA';
         expect(migrated, expected);
 
         final restored = FinanceStore(store.prefs);

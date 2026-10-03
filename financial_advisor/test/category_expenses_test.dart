@@ -138,7 +138,7 @@ void main() {
     expect(
       find.descendant(
         of: categoryTile('Food'),
-        matching: find.text('28.00 / not set'),
+        matching: find.text('${store.currency} 28.00 / not set'),
       ),
       findsOneWidget,
     );
@@ -182,7 +182,7 @@ void main() {
     );
     await expandCategory(tester, 'Transportation');
     expect(expenseTile('Lunch'), findsOneWidget);
-    expect(find.text('−25.50'), findsOneWidget);
+    expect(find.text('−${store.currency} 25.50'), findsOneWidget);
     final restored = FinanceStore(store.prefs);
     await restored.load();
     expect(restored.entries.single.id, 'Lunch');
@@ -210,7 +210,10 @@ void main() {
         find.text('No expenses in this category this month.'),
         findsOneWidget,
       );
-      expect(find.text('0.00 / 50.00'), findsOneWidget);
+      expect(
+        find.text('${store.currency} 0.00 / ${store.currency} 50.00'),
+        findsOneWidget,
+      );
       expect(store.budgetFor(month, 'Food'), 5000);
       final restored = FinanceStore(store.prefs);
       await restored.load();

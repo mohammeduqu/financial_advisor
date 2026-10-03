@@ -10,43 +10,76 @@ import 'transactions.dart';
 
 class HomePage extends StatelessWidget {
   final FinanceStore store;
-  final DateTime month;
+  final DateTime? month;
+  final VoidCallback? chooseMonth;
   final ValueChanged<int> navigate;
   final VoidCallback settings;
   const HomePage({
     super.key,
     required this.store,
-    required this.month,
+    this.month,
+    this.chooseMonth,
     required this.navigate,
     required this.settings,
   });
   @override
   Widget build(BuildContext context) {
-    final income = store.incomeFor(month),
-        spent = store.expensesFor(month),
-        net = income - spent;
-    final expenses = store.forMonth(month).where((e) => !e.income).toList();
+    final month = this.month;
+    final entries = store.forPeriod(month);
+    final expenses = entries.where((e) => !e.income).toList();
+    final income = entries
+        .where((e) => e.income)
+        .fold(0, (total, entry) => total + entry.cents);
+    final spent = expenses.fold(0, (total, entry) => total + entry.cents);
+    final net = income - spent;
+    final categoryTotals = <String, int>{};
+    for (final entry in expenses) {
+      categoryTotals.update(
+        entry.category,
+        (total) => total + entry.cents,
+        ifAbsent: () => entry.cents,
+      );
+    }
     final highest = expenses.fold<int>(0, (a, b) => a > b.cents ? a : b.cents);
-    final now = DateTime.now();
     final days =
-        monthKey(month) == monthKey(now)
-            ? now.day
-            : DateTime(month.year, month.month + 1, 0).day;
+        month != null
+            ? DateTime(month.year, month.month + 1, 0).day
+            : entries.isEmpty
+            ? 1
+            : DateTime.utc(
+                      entries.first.date.year,
+                      entries.first.date.month,
+                      entries.first.date.day,
+                    )
+                    .difference(
+                      DateTime.utc(
+                        entries.last.date.year,
+                        entries.last.date.month,
+                        entries.last.date.day,
+                      ),
+                    )
+                    .inDays +
+                1;
     final top =
-        categories.where((c) => store.categorySpent(month, c) > 0).toList()
-          ..sort(
-            (a, b) => store
-                .categorySpent(month, b)
-                .compareTo(store.categorySpent(month, a)),
-          );
-    final budget = store.budgetFor(month);
-    final previous = DateTime(month.year, month.month - 1);
-    final previousNet = store.incomeFor(previous) - store.expensesFor(previous);
-    final hasPrevious = store.forMonth(previous).isNotEmpty && previousNet != 0;
+        categoryTotals.keys.toList()
+          ..sort((a, b) => categoryTotals[b]!.compareTo(categoryTotals[a]!));
+    final budget = month == null ? 0 : store.budgetFor(month);
+    final previous =
+        month == null ? null : DateTime(month.year, month.month - 1);
+    final previousNet =
+        previous == null
+            ? 0
+            : store.incomeFor(previous) - store.expensesFor(previous);
+    final hasPrevious =
+        previous != null &&
+        store.forMonth(previous).isNotEmpty &&
+        previousNet != 0;
     final change =
         hasPrevious ? (net - previousNet) / previousNet.abs() * 100 : null;
     final alert =
-        budget > 0 && spent >= budget * .8
+        month == null
+            ? 'Choose a month to review budget alerts.'
+            : budget > 0 && spent >= budget * .8
             ? 'You have used ${(spent / budget * 100).round()}% of your monthly budget. Review your remaining limits in Analysis.'
             : 'No budget alerts. Your recorded expenses are within the limits you have set.';
     return ListView(
@@ -79,6 +112,8 @@ class HomePage extends StatelessWidget {
                   AppText(
                     'Hello, ${store.name.split(' ').first}',
                     style: Theme.of(context).textTheme.headlineMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 5),
                   const AppText(
@@ -111,8 +146,8 @@ class HomePage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 16),
                                 AppText(
-                                  budget == 0
-                                      ? 'Set a budget in Analysis to receive spending alerts.'
+                                  month != null && budget == 0
+                                      ? 'No budget set for this month.'
                                       : alert,
                                 ),
                                 const SizedBox(height: 20),
@@ -132,7 +167,7 @@ class HomePage extends StatelessWidget {
                 child: AppText(
                   store.name.trim().isEmpty
                       ? 'N'
-                      : store.name.trim()[0].toUpperCase(),
+                      : store.name.trim().characters.first.toUpperCase(),
                   style: const TextStyle(
                     color: Color(0xFFD7C79F),
                     fontSize: 15,
@@ -150,10 +185,10 @@ class HomePage extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: AppText(
-                      'MONTHLY CASH FLOW',
-                      style: TextStyle(
+                      month == null ? 'NET CASH FLOW' : 'MONTHLY CASH FLOW',
+                      style: const TextStyle(
                         fontSize: 10,
                         letterSpacing: 1.7,
                         color: muted,
@@ -184,7 +219,9 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               AppText(
-                change == null
+                month == null
+                    ? 'Complete financial history'
+                    : change == null
                     ? 'Monthly change — · no prior comparison'
                     : '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}% net cash flow vs. previous month',
                 style: const TextStyle(fontSize: 11, color: blue),
@@ -199,7 +236,7 @@ class HomePage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _stat(
-                      'Monthly income',
+                      month == null ? 'Total income' : 'Monthly income',
                       money(income),
                       Icons.south_west_rounded,
                       blue,
@@ -207,11 +244,26 @@ class HomePage extends StatelessWidget {
                   ),
                   Expanded(
                     child: _stat(
-                      'Monthly expenses',
+                      month == null ? 'Total expenses' : 'Monthly expenses',
                       money(spent),
                       Icons.north_east_rounded,
                       const Color(0xFFCDBB93),
                     ),
+                  ),
+                ],
+              ),
+              const Divider(height: 28),
+              Row(
+                children: [
+                  const Expanded(
+                    child: AppText(
+                      'Total transactions',
+                      style: TextStyle(fontSize: 12, color: muted),
+                    ),
+                  ),
+                  Text(
+                    '${entries.length}',
+                    key: const Key('home-transaction-count'),
                   ),
                 ],
               ),
@@ -302,7 +354,11 @@ class HomePage extends StatelessWidget {
         ),
         const SizedBox(height: 26),
         SpendingTrend(store: store, month: month),
-        const SectionHeading('Your month at a glance'),
+        SectionHeading(
+          month == null
+              ? 'Your finances at a glance'
+              : 'Your month at a glance',
+        ),
         Row(
           children: [
             Expanded(
@@ -330,17 +386,19 @@ class HomePage extends StatelessWidget {
             Expanded(
               child: _summary(
                 'Daily average',
-                money((spent / days).round()),
+                '${store.currency} ${money((spent / days).round())}',
                 Icons.calendar_today_outlined,
-                'Across $days calendar days',
+                month == null
+                    ? 'Across $days days of recorded history'
+                    : 'Across $days calendar days',
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _summary(
                 'Net savings',
-                money(net),
-                Icons.savings_outlined,
+                '${store.currency} ${money(net)}',
+                Icons.account_balance_wallet_outlined,
                 income > 0
                     ? '${(net / income * 100).toStringAsFixed(1)}% of income'
                     : 'No income recorded',
@@ -380,7 +438,7 @@ class HomePage extends StatelessWidget {
                                     ),
                                   ),
                                   AppText(
-                                    money(store.categorySpent(month, top[i])),
+                                    '${store.currency} ${money(categoryTotals[top[i]]!)}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
@@ -390,8 +448,7 @@ class HomePage extends StatelessWidget {
                               ),
                               const SizedBox(height: 9),
                               LinearProgressIndicator(
-                                value:
-                                    store.categorySpent(month, top[i]) / spent,
+                                value: categoryTotals[top[i]]! / spent,
                                 minHeight: 6,
                                 borderRadius: BorderRadius.circular(5),
                                 backgroundColor: line.withValues(alpha: .5),
@@ -405,7 +462,16 @@ class HomePage extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         BudgetDistribution(store: store, month: month),
-        FinancialInsightsPanel(store: store, month: month),
+        if (month != null)
+          FinancialInsightsPanel(store: store, month: month)
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: AppText(
+              'Choose a month for monthly insights and budget comparisons.',
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+          ),
         SectionHeading(
           'Recent transactions',
           action: TextButton(
@@ -413,27 +479,38 @@ class HomePage extends StatelessWidget {
             child: const AppText('View all'),
           ),
         ),
-        if (store.forMonth(month).isEmpty)
-          const AppText(
-            'No transactions this month.',
-            style: TextStyle(color: muted),
+        if (entries.isEmpty)
+          AppText(
+            month == null
+                ? 'No transactions yet.'
+                : 'No transactions this month.',
+            style: const TextStyle(color: muted),
           ),
-        ...store
-            .forMonth(month)
-            .take(3)
-            .map((e) => EntryTile(entry: e, store: store)),
+        ...entries.take(3).map((e) => EntryTile(entry: e, store: store)),
         const SectionHeading('Your monthly budget'),
         Surface(
           key: const Key('home-budget-summary'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppText(
-                DateFormat.yMMMM(languageOf(context)).format(month),
-                style: const TextStyle(color: muted, fontSize: 12),
-              ),
+              if (month != null)
+                AppText(
+                  DateFormat.yMMMM(languageOf(context)).format(month),
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
               const SizedBox(height: 12),
-              if (budget > 0) ...[
+              if (month == null) ...[
+                const AppText(
+                  'Choose a month to view its budget.',
+                  style: TextStyle(fontSize: 12, color: muted, height: 1.6),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: chooseMonth,
+                  icon: const Icon(Icons.filter_alt_outlined, size: 18),
+                  label: const AppText('Choose month'),
+                ),
+              ] else if (budget > 0) ...[
                 const AppText(
                   'Monthly budget',
                   style: TextStyle(color: muted, fontSize: 11),
@@ -478,7 +555,7 @@ class HomePage extends StatelessWidget {
                         '${store.currency} ${money((budget - spent).abs())}',
                         spent > budget
                             ? Icons.warning_amber_rounded
-                            : Icons.savings_outlined,
+                            : Icons.account_balance_wallet_outlined,
                         spent > budget ? const Color(0xFFE0BD81) : blue,
                       ),
                     ),
@@ -491,7 +568,7 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const AppText(
-                  'Set a monthly budget in Analysis to track your spending limits.',
+                  'View your recorded spending in Analysis.',
                   style: TextStyle(fontSize: 12, color: muted, height: 1.6),
                 ),
               ],
@@ -501,8 +578,8 @@ class HomePage extends StatelessWidget {
                 child: OutlinedButton.icon(
                   key: const Key('home-manage-budget'),
                   onPressed: () => navigate(3),
-                  icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: const AppText('Manage budget'),
+                  icon: const Icon(Icons.bar_chart_rounded, size: 18),
+                  label: const AppText('View analysis'),
                 ),
               ),
             ],
@@ -510,7 +587,7 @@ class HomePage extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         AppText(
-          '${store.demo ? 'SAMPLE' : 'TADBEER'} · ${DateFormat.yMMMM(languageOf(context)).format(month).toUpperCase()}',
+          '${store.demo ? 'SAMPLE' : 'TADBEER'} · ${month == null ? tr(context, 'All dates') : DateFormat.yMMMM(languageOf(context)).format(month).toUpperCase()}',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 9, color: muted, letterSpacing: 1),
         ),

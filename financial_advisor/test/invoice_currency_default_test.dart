@@ -29,6 +29,7 @@ Future<FinanceStore> _openInvoice(
   await store.start(
     userName: 'Alex',
     selectedCurrency: accountCurrency,
+    acceptedLegal: true,
     useDemo: false,
   );
   await store.setLanguage(language);
