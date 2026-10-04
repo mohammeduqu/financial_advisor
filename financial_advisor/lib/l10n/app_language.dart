@@ -81,6 +81,70 @@ class AppText extends StatelessWidget {
 }
 
 const arabic = <String, String>{
+  'Export PDF Report': 'تصدير تقرير PDF',
+  'Export report': 'تصدير تقرير',
+  'File format': 'صيغة الملف',
+  'Microsoft Word (.docx)': 'Microsoft Word (.docx)',
+  'Report language affects the exported file only.':
+      'تؤثر لغة التقرير في الملف المصدّر فقط.',
+  'Save Word': 'حفظ Word',
+  'Share Word': 'مشاركة Word',
+  'Open Word': 'فتح Word',
+  'Word document saved.': 'تم حفظ مستند Word.',
+  'Word document downloaded.': 'تم تنزيل مستند Word.',
+  'Word document downloaded. You can share the saved file.':
+      'تم تنزيل مستند Word. يمكنك مشاركة الملف المحفوظ.',
+  'Could not export the Word document. Please try again.':
+      'تعذر تصدير مستند Word. حاول مرة أخرى.',
+  'Word layout may differ from this preview.':
+      'قد يختلف تخطيط مستند Word عن هذه المعاينة.',
+  'Your Word document is ready. Open the saved file in Microsoft Word or a compatible app.':
+      'مستند Word جاهز. افتح الملف المحفوظ في Microsoft Word أو تطبيق متوافق.',
+  'Preview is unavailable. You can still save or share the Word document.':
+      'المعاينة غير متاحة. لا يزال بإمكانك حفظ مستند Word أو مشاركته.',
+  'A report based on your saved financial data.':
+      'تقرير يستند إلى بياناتك المالية المحفوظة.',
+  'Reporting period': 'فترة التقرير',
+  'All Time': 'جميع الفترات',
+  'Month and year': 'الشهر والسنة',
+  'Custom date range': 'فترة مخصصة',
+  'Report language': 'لغة التقرير',
+  'App language': 'لغة التطبيق',
+  'English': 'الإنجليزية',
+  'End date': 'تاريخ الانتهاء',
+  'Preview report': 'معاينة التقرير',
+  'Preparing your report…': 'جارٍ إعداد تقريرك…',
+  'Could not create the report. Please try again.':
+      'تعذر إنشاء التقرير. يرجى المحاولة مرة أخرى.',
+  'Save PDF': 'حفظ PDF',
+  'Open PDF': 'فتح PDF',
+  'Share from your PDF viewer.': 'شارك الملف من تطبيق عرض PDF.',
+  'Choose Microsoft Print to PDF in the print dialog.':
+      'اختر Microsoft Print to PDF في نافذة الطباعة.',
+  'Share PDF': 'مشاركة PDF',
+  'Save or print': 'حفظ أو طباعة',
+  'Month': 'الشهر',
+  'Year': 'السنة',
+  'End date must be on or after start date.':
+      'يجب أن يكون تاريخ الانتهاء في يوم البدء نفسه أو بعده.',
+  'Report language affects the PDF only.': 'تؤثر لغة التقرير في ملف PDF فقط.',
+  'Scheduled transactions are shown separately. Upcoming commitments cover up to 90 days within your selected period.':
+      'تُعرض المعاملات المجدولة بشكل منفصل. تغطي الالتزامات القادمة مدة تصل إلى ٩٠ يومًا ضمن الفترة التي اخترتها.',
+  'PDF downloaded. You can share the saved file.':
+      'تم تنزيل ملف PDF. يمكنك مشاركة الملف المحفوظ.',
+  'PDF downloaded.': 'تم تنزيل ملف PDF.',
+  'Could not export the PDF. Please try again.':
+      'تعذر تصدير ملف PDF. يرجى المحاولة مرة أخرى.',
+  'Preview is unavailable. You can still save or share the PDF.':
+      'المعاينة غير متاحة. لا يزال بإمكانك حفظ ملف PDF أو مشاركته.',
+  'Refresh this page to try the preview again.':
+      'أعد تحميل هذه الصفحة للمحاولة مجددًا في عرض المعاينة.',
+  'Choose Save as PDF in the print dialog.':
+      'اختر حفظ بصيغة PDF في نافذة الطباعة.',
+  'The end date must be on or after the start date.':
+      'يجب أن يكون تاريخ الانتهاء في يوم البدء نفسه أو بعده.',
+  'No saved transactions in this period. Choose another period or add transactions to build your report.':
+      'لا توجد معاملات محفوظة خلال هذه الفترة. اختر فترة أخرى أو أضف معاملات لإعداد تقريرك.',
   'Name must be fewer than {0} characters.':
       'يجب أن يكون الاسم أقل من {0} حرف.',
   'Profile details': 'بيانات الملف الشخصي',

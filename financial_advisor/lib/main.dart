@@ -13,6 +13,7 @@ import 'screens/scan.dart';
 import 'screens/smart_prices.dart';
 import 'screens/plan.dart';
 import 'screens/privacy_terms.dart';
+import 'screens/report_export.dart';
 import 'screens/legal_acceptance.dart';
 import 'widgets/recurring_entry_scheduler.dart';
 import 'widgets/profile_details.dart';
@@ -520,6 +521,31 @@ class SettingsPage extends StatelessWidget {
               PageHeading('Your profile', store.name, titleMaxLines: 2),
               ProfileDetailsCard(store: store),
               LanguageSelector(store: store),
+              const SizedBox(height: 20),
+              Surface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const AppText(
+                      'A report based on your saved financial data.',
+                      style: TextStyle(color: muted, fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      key: const Key('export-pdf-report'),
+                      icon: const Icon(Icons.description_outlined),
+                      label: const AppText('Export report'),
+                      onPressed:
+                          () => Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ReportExportPage(store: store),
+                            ),
+                          ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 20),
               Surface(
                 key: const Key('privacy-card'),
